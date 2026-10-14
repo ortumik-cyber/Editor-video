@@ -10,7 +10,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 | 2 | Biblioteca: importar medios, miniaturas, metadatos, onda de audio | hecho |
 | 3 | Línea de tiempo: pistas, clips, arrastrar, recortar, dividir, zoom, cursor | hecho |
 | 4 | Reproductor: composición en canvas, audio sincronizado, controles | hecho |
-| 5 | Efectos y transiciones | pendiente |
+| 5 | Efectos, filtros, transiciones, recorte, volteo y giro | hecho |
 | 6 | Texto y stickers | pendiente |
 | 7 | Audio | pendiente |
 | 8 | Exportación MP4 (WebCodecs + muxer) | pendiente |
@@ -67,7 +67,16 @@ Unidades de la transformación de un clip: `x` e `y` son fracciones del ancho y 
 
 La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con la fuente indicada y, si no está cargada, con la del sistema (las fuentes llegan con el módulo 6).
 
-Pendiente: efectos y transiciones (módulo 5), que se enganchan en `composeFrame`.
+
+## Efectos y transiciones (`src/core/effects.js`, `src/render`, `src/effects`)
+
+- `core/effects.js` (datos puros): 10 efectos de un solo valor (brillo, contraste, saturación, temperatura, tono, sepia, viñeta, desenfoque, nitidez, mosaico), 7 filtros y 8 transiciones. Un clip tiene a lo sumo un efecto de cada tipo; `foldEffects` los reúne para el renderizador.
+- Comandos: `effect/set` (crea, actualiza y quita al volver al neutro; usa `effectType`, no `type`), `effect/preset` (con intensidad), `effect/clear`. En `clip/update`: `crop`, `flip` y `transition`, todos validados.
+- `render/gl.js` + `render/shaders.js`: renderizador WebGL. Capas con efectos, recorte, volteo, giro, texto y transiciones. El desenfoque va en dos pasadas con buffers intermedios. Las imágenes pasan por un lienzo 2D antes de subirse a la GPU. Devuelve su lienzo para usarlo enseguida (`drawImage` o `VideoFrame`).
+- Si WebGL no está o se pierde el contexto, el reproductor usa `composeFrame` (2D): recorte, volteo y transiciones como disolver, sin efectos de color.
+- Fórmulas de color (rgb 0-1): saturación `mix(luma, rgb, 1 + s)`; temperatura `rgb * (1 + 0.2t, 1, 1 - 0.2t)`; brillo `rgb + 0.5b`; contraste `(rgb - 0.5)(1 + c) + 0.5`. El tono usa la matriz de `hue-rotate` de CSS y la sepia la de CSS `sepia`.
+- Transiciones: van en el clip que entra. Están centradas en el corte con el clip anterior, que debe estar pegado y en la misma pista. La duración se limita a la de ambos clips. Antes del corte se usan fotogramas previos al punto de entrada del clip entrante, y después los posteriores al final del saliente. Si el archivo no tiene más material, se congela el primer o el último fotograma. El audio no se mezcla durante la transición.
+- `effects/panel.js`: panel del clip seleccionado. Se construye una vez por clip y luego solo sincroniza valores. Un arrastre de deslizador es un solo paso de historial. Doble toque en el valor restablece.
 
 ## Reglas del modelo
 
@@ -86,6 +95,6 @@ Pendiente: efectos y transiciones (módulo 5), que se enganchan en `composeFrame
 
 `npm test` (Node 20 o superior, sin dependencias).
 
-`npm run test:browser` prueba biblioteca y línea de tiempo en Chromium real (importación, IndexedDB, ratón, teclado, táctil). Necesita `ffmpeg` y `playwright` global.
+`npm run test:browser` prueba biblioteca, línea de tiempo, reproductor, efectos y panel en Chromium real (importación, IndexedDB, ratón, teclado, táctil, píxeles del lienzo). Necesita `ffmpeg` y `playwright` global.
 
 `npm start` sirve la carpeta en http://localhost:5173.

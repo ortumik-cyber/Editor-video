@@ -274,3 +274,18 @@ test('mediaPlan y upcomingMedia incluyen los dos clips durante la ventana de tra
   assert.deepEqual(upcomingMedia(p, 2.6, 1).map((c) => c.id), [b.id], 'se precarga desde el inicio de la ventana');
   assert.deepEqual(upcomingMedia(p, 2.4, 1), []);
 });
+
+import { centeredCrop, cropRatio } from '../src/effects/crop.js';
+
+test('centeredCrop: recorte centrado a la proporción pedida', () => {
+  assert.equal(centeredCrop(1600, 900, null), null);
+  assert.equal(centeredCrop(1600, 900, 16 / 9), null);
+  const square = centeredCrop(1600, 900, 1);
+  assert.ok(Math.abs(square.w - 0.5625) < 1e-9 && square.h === 1 && Math.abs(square.x - 0.21875) < 1e-9 && square.y === 0);
+  const tall = centeredCrop(1000, 1000, 9 / 16);
+  assert.ok(Math.abs(tall.w - 0.5625) < 1e-9 && tall.h === 1);
+  const wide = centeredCrop(1000, 1000, 2);
+  assert.deepEqual([wide.w, wide.h, wide.x, wide.y], [1, 0.5, 0, 0.25]);
+  assert.ok(Math.abs(cropRatio(1600, 900, square) - 1) < 1e-9);
+  assert.ok(Math.abs(cropRatio(1600, 900, null) - 16 / 9) < 1e-9);
+});
