@@ -1,0 +1,53 @@
+/* Tokens del sistema de diseño. Estilo: Dark Mode (OLED). Fuente: Inter.
+   El azul de acento no llega a 4.5:1 sobre el fondo como texto: úsalo solo como relleno o línea. */
+:root {
+  color-scheme: dark;
+
+  --color-primary: #ec4899;
+  --color-on-primary: #000000;
+  --color-secondary: #db2777;
+  --color-on-secondary: #ffffff;
+  --color-accent: #2563eb;
+  --color-on-accent: #ffffff;
+  --color-background: #0f172a;
+  --color-foreground: #ffffff;
+  --color-card: #192134;
+  --color-card-foreground: #ffffff;
+  --color-muted: #201a32;
+  --color-muted-foreground: #94a3b8;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-destructive: #dc2626;
+  --color-on-destructive: #ffffff;
+  --color-ring: #ec4899;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-base: 16px;
+  --leading-base: 1.5;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --touch-target: 44px;
+  --touch-gap: 8px;
+
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-fast: 0ms; --motion-base: 0ms; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
