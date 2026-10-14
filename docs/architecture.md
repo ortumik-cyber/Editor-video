@@ -8,7 +8,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 |---|--------|--------|
 | 1 | Núcleo: modelo, comandos, store, deshacer/rehacer, persistencia | hecho |
 | 2 | Biblioteca: importar medios, miniaturas, metadatos, onda de audio | hecho |
-| 3 | Línea de tiempo | pendiente |
+| 3 | Línea de tiempo: pistas, clips, arrastrar, recortar, dividir, zoom, cursor | hecho |
 | 4 | Motor de previsualización (Canvas/WebGL + WebAudio) | pendiente |
 | 5 | Efectos y transiciones | pendiente |
 | 6 | Texto y stickers | pendiente |
@@ -35,6 +35,25 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 - Un `hasAudio: false` significa que el navegador no pudo decodificar audio del archivo (sin pista, o códec de audio no soportado).
 - Los códecs los decide el navegador. H.264/AAC va en Chrome, Edge y Safari. El Chromium de pruebas no los incluye.
 
+## Línea de tiempo (`src/timeline`)
+
+Tres capas. Las dos primeras son puras y se prueban en Node.
+
+- `geometry.js`, `edit.js`: zoom, regla, onda; imán, recorte con límites y colocación sin solapes.
+- `actions.js`: añadir medios, dividir en el cursor, duplicar, borrar, mover con flechas. Operan sobre el store.
+- `timeline.js` + `timeline.css`: DOM y gestos. Lee el store y escribe solo con comandos.
+
+Comportamiento:
+- Un gesto (mover o recortar) es un solo comando al soltar, y por tanto un solo paso de historial. Durante el arrastre el clip se mueve con `transform`.
+- Soltar sobre otro clip lo deja en el hueco libre más cercano. Nunca solapa.
+- Un clip no pasa a una pista de otro tipo ni a una bloqueada.
+- Imán de 8 px a bordes de clips, cursor e inicio, con una guía visible.
+- Táctil: un clip sin seleccionar deja que el dedo desplace la línea. Toca para seleccionar, y entonces se arrastra y se recorta.
+- Teclado: `S` dividir, `D` duplicar, `Supr` eliminar (con `Mayús`, cierra el hueco), `←` `→` mover un fotograma (con `Mayús`, un segundo), `+` `-` zoom, `Inicio` `Fin`, `Ctrl+Z` y `Ctrl+Mayús+Z`.
+- Zoom con botones o Ctrl+rueda, anclado al puntero. No hay pellizco táctil todavía.
+- `timeline.follow = true` hace que la vista siga al cursor. El reproductor (módulo 4) lo activará.
+- `dev/timeline.html` es una página de desarrollo: importar medios, ponerlos en la línea y probar los gestos.
+
 ## Reglas del modelo
 
 - Tiempo en segundos, con precisión de milisegundo (`snap`).
@@ -52,6 +71,6 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 
 `npm test` (Node 20 o superior, sin dependencias).
 
-`npm run test:browser` importa medios reales en Chromium con IndexedDB. Necesita `ffmpeg` y `playwright` global.
+`npm run test:browser` prueba biblioteca y línea de tiempo en Chromium real (importación, IndexedDB, ratón, teclado, táctil). Necesita `ffmpeg` y `playwright` global.
 
 `npm start` sirve la carpeta en http://localhost:5173.

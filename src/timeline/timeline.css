@@ -1,0 +1,193 @@
+/* Línea de tiempo. Usa los tokens de ../ui/tokens.css. */
+.tl {
+  --tl-ruler-h: 44px;
+  --tl-video: color-mix(in oklab, var(--color-accent) 42%, var(--color-card));
+  --tl-audio: color-mix(in oklab, var(--color-primary) 34%, var(--color-card));
+  --tl-text: color-mix(in oklab, var(--color-secondary) 50%, var(--color-muted));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font: 500 14px/1.3 var(--font-sans);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tl__toolbar {
+  display: flex;
+  gap: var(--touch-gap);
+  padding: var(--space-2) var(--space-4);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+  scrollbar-width: none;
+}
+.tl__toolbar .tl__btn:nth-child(3),
+.tl__toolbar .tl__btn:nth-child(5),
+.tl__toolbar .tl__btn:nth-child(6) { margin-right: var(--space-3); }
+
+.tl__btn {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-card-foreground);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out), opacity var(--motion-fast);
+}
+.tl__btn:hover:not(:disabled) { background: color-mix(in oklab, var(--color-card) 80%, white); }
+.tl__btn:active:not(:disabled) { background: color-mix(in oklab, var(--color-card) 65%, white); }
+.tl__btn:disabled { opacity: 0.38; cursor: default; }
+
+.tl__scroll {
+  position: relative;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
+  outline: none;
+}
+.tl__content { position: relative; min-width: 100%; }
+
+.tl__ruler {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  height: var(--tl-ruler-h);
+  background: var(--color-background);
+  border-bottom: 1px solid var(--color-border);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.tl__tick {
+  position: absolute;
+  bottom: 0;
+  height: 8px;
+  border-left: 1px solid var(--color-border);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+}
+.tl__tick--major {
+  top: 6px;
+  height: auto;
+  padding-left: 4px;
+  white-space: nowrap;
+  border-left-color: var(--color-muted-foreground);
+}
+
+.tl__row { display: flex; height: var(--tl-track-h); border-bottom: 1px solid var(--color-border); }
+.tl__head {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(var(--tl-gutter) - 12px);
+  margin-right: 12px;
+  background: var(--color-background);
+  box-shadow: inset 4px 0 0 var(--tl-kind, transparent);
+}
+.tl__row--video { --tl-kind: var(--tl-video); }
+.tl__row--audio { --tl-kind: var(--tl-audio); }
+.tl__row--text { --tl-kind: var(--tl-text); }
+.tl__row.is-locked .tl__lane { background: repeating-linear-gradient(135deg, transparent 0 8px, rgb(255 255 255 / 0.03) 8px 16px); }
+.tl__lock[aria-pressed="true"] { color: var(--color-primary); }
+
+.tl__lane { position: relative; flex: 1; }
+
+.tl__clip {
+  position: absolute;
+  top: 4px;
+  height: var(--tl-clip-h);
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--tl-video);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  cursor: grab;
+  touch-action: pan-x pan-y;
+}
+.tl__clip--audio { background: var(--tl-audio); }
+.tl__clip--text { background: var(--tl-text); }
+.tl__clip::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28); pointer-events: none; }
+.tl__clip.is-selected { overflow: visible; z-index: 3; box-shadow: 0 0 0 2px var(--color-ring); touch-action: none; }
+.tl__clip.is-dragging { cursor: grabbing; opacity: 0.9; box-shadow: 0 0 0 2px var(--color-ring), 0 8px 24px rgb(0 0 0 / 0.5); }
+.tl__clip:focus-visible { outline: 2px solid var(--color-foreground); outline-offset: 2px; }
+
+.tl__clip-bg { position: absolute; inset: 0; background-size: auto 100%; background-repeat: repeat-x; opacity: 0.85; border-radius: inherit; }
+.tl__clip--image .tl__clip-bg { opacity: 0.8; }
+.tl__clip-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgb(0 0 0 / 0.55)); }
+.tl__wave { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tl__wave path { stroke: color-mix(in oklab, var(--color-primary) 70%, white); stroke-width: 2; stroke-linecap: round; fill: none; opacity: 0.9; }
+.tl__clip-label {
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: 4px;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+  pointer-events: none;
+}
+.tl__clip--text .tl__clip-label { bottom: auto; top: 50%; transform: translateY(-50%); font-size: 14px; }
+
+.tl__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  width: var(--touch-target);
+  display: grid;
+  place-items: center;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.tl__handle--start { left: calc(var(--touch-target) / -2); }
+.tl__handle--end { right: calc(var(--touch-target) / -2); }
+.tl__handle i { width: 8px; height: 28px; border-radius: 4px; background: var(--color-primary); box-shadow: 0 0 0 2px var(--color-background); }
+
+.tl__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 8;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-primary);
+  pointer-events: none;
+  will-change: transform;
+}
+.tl__playhead-head {
+  position: absolute;
+  top: 0;
+  left: calc(var(--touch-target) / -2 + 1px);
+  width: var(--touch-target);
+  height: var(--tl-ruler-h);
+  pointer-events: auto;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.tl__playhead-head::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 3px 3px 7px 7px;
+  background: var(--color-primary);
+}
+.tl__guide { position: absolute; top: var(--tl-ruler-h); bottom: 0; left: 0; z-index: 5; width: 1px; background: var(--color-foreground); opacity: 0.7; pointer-events: none; }
+
+.tl__status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

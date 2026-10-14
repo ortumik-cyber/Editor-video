@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Línea de tiempo (desarrollo)</title>
+  <link rel="stylesheet" href="../src/ui/tokens.css">
+  <link rel="stylesheet" href="../src/timeline/timeline.css">
+  <style>
+    html, body { height: 100%; margin: 0; background: var(--color-background); color: var(--color-foreground); font: 400 var(--text-base)/var(--leading-base) var(--font-sans); }
+    body { display: flex; flex-direction: column; }
+    .bar { display: flex; flex-wrap: wrap; gap: var(--touch-gap); align-items: center; padding: var(--space-3) var(--space-4); }
+    .pill { min-height: var(--touch-target); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: var(--color-primary); color: var(--color-on-primary); font: 600 14px var(--font-sans); cursor: pointer; display: inline-flex; align-items: center; }
+    .pill--ghost { background: var(--color-card); color: var(--color-card-foreground); }
+    .tray { display: flex; gap: var(--touch-gap); padding: 0 var(--space-4) var(--space-3); overflow-x: auto; }
+    .asset { flex: none; width: 96px; padding: 0; border: 0; border-radius: var(--radius-md); background: var(--color-card); color: inherit; font: 12px var(--font-sans); text-align: left; cursor: pointer; overflow: hidden; }
+    .asset img { display: block; width: 100%; height: 56px; object-fit: cover; background: var(--color-muted); }
+    .asset span { display: block; padding: 4px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    #timeline { flex: 1; min-height: 0; border-top: 1px solid var(--color-border); }
+    input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <label class="pill" for="files">Importar</label>
+    <input id="files" type="file" multiple accept="video/*,image/*,audio/*">
+    <button class="pill pill--ghost" id="add-text" type="button">Texto</button>
+    <span id="msg" role="status"></span>
+  </div>
+  <div class="tray" id="tray"></div>
+  <div id="timeline"></div>
+  <script type="module">
+    import { createStore, createProject, createRepo, createIndexedDbBackend } from '../src/core/index.js';
+    import { createLibrary, createDomAdapters, formatDuration } from '../src/library/index.js';
+    import { createTimeline, addAssetClip, addTextClip } from '../src/timeline/index.js';
+
+    const store = createStore(createProject({ name: 'Demo' }));
+    const repo = createRepo(createIndexedDbBackend(`editor-video-dev-${Date.now()}`));
+    const library = createLibrary({ store, repo, adapters: createDomAdapters() });
+    const timeline = createTimeline(document.getElementById('timeline'), { store, library });
+    Object.assign(window, { store, library, timeline });
+
+    const tray = document.getElementById('tray');
+    const msg = document.getElementById('msg');
+    const drawn = new Set();
+    store.subscribe(async () => {
+      for (const asset of Object.values(store.getProject().assets)) {
+        if (drawn.has(asset.id)) continue;
+        drawn.add(asset.id);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'asset';
+        button.dataset.assetId = asset.id;
+        const url = await library.getThumbUrl(asset.id);
+        button.innerHTML = `${url ? `<img alt="" src="${url}">` : '<img alt="">'}<span>${asset.name}</span><span>${asset.duration ? formatDuration(asset.duration) : 'imagen'}</span>`;
+        button.addEventListener('click', () => addAssetClip(store, asset.id));
+        tray.append(button);
+      }
+    });
+    document.getElementById('files').addEventListener('change', async (e) => {
+      const { rejected } = await library.importFiles(e.target.files);
+      msg.textContent = rejected.map((r) => r.message).join(' ');
+      e.target.value = '';
+    });
+    document.getElementById('add-text').addEventListener('click', () => addTextClip(store, { text: { content: 'Hola' } }));
+  </script>
+</body>
+</html>
