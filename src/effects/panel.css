@@ -19,3 +19,12 @@
 .ins__range { grid-column: 1 / -1; width: 100%; height: var(--touch-target); margin: 0; accent-color: var(--color-primary); cursor: pointer; }
 .ins__range:disabled { opacity: 0.38; cursor: default; }
 .ins__status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.ins__sub { margin: var(--space-2) 0 0; font-size: 13px; font-weight: 600; color: var(--color-muted-foreground); }
+.ins__textarea, .ins__select { width: 100%; min-height: var(--touch-target); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-card); color: var(--color-card-foreground); font: inherit; }
+.ins__textarea { resize: vertical; min-height: 88px; }
+.ins__select { appearance: auto; }
+.ins__colors { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--touch-gap); overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.ins__swatch { flex: none; width: var(--touch-target); height: var(--touch-target); border: 2px solid var(--color-border); border-radius: 999px; background: var(--sw); cursor: pointer; }
+.ins__swatch[aria-pressed="true"] { border-color: var(--color-foreground); box-shadow: 0 0 0 2px var(--color-primary); }
+.ins__color { flex: none; width: var(--touch-target); height: var(--touch-target); padding: 0; border: 0; border-radius: 999px; background: none; cursor: pointer; }

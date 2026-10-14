@@ -1,10 +1,19 @@
 import { EFFECTS, EFFECT_TYPES, PRESETS, TRANSITIONS, TRANSITION_RANGE, foldEffects } from '../core/effects.js';
 import { previousAdjacent } from '../core/selectors.js';
+import { ANIMATIONS, FONTS, resolveWeight } from '../core/text.js';
 import { icon } from '../ui/icons.js';
 import { centeredCrop, cropRatio } from './crop.js';
 
 const CROPS = [['Original', null], ['1:1', 1], ['4:5', 4 / 5], ['9:16', 9 / 16], ['16:9', 16 / 9]];
 const SPEEDS = [0.5, 1, 2, 4];
+const SWATCHES = [['#ffffff', 'blanco'], ['#000000', 'negro'], ['#ff3b30', 'rojo'], ['#ff9500', 'naranja'], ['#ffcc00', 'amarillo'], ['#34c759', 'verde'],
+  ['#00c7be', 'turquesa'], ['#007aff', 'azul'], ['#af52de', 'violeta'], ['#ff2d55', 'rosa'], ['#8e8e93', 'gris'], ['#ffd6e7', 'rosa claro']];
+const TEXT_RANGES = {
+  size: { label: 'Tamaño del texto', min: 8, max: 400, step: 1 },
+  backgroundOpacity: { label: 'Opacidad del fondo', min: 0, max: 1, step: 0.01 },
+  animInDuration: { label: 'Duración de la entrada', min: 0.1, max: 3, step: 0.1 },
+  animOutDuration: { label: 'Duración de la salida', min: 0.1, max: 3, step: 0.1 },
+};
 const SLIDERS = {
   x: { label: 'Posición horizontal', min: -1, max: 1, step: 0.01, def: 0 },
   y: { label: 'Posición vertical', min: -1, max: 1, step: 0.01, def: 0 },
@@ -21,6 +30,39 @@ function sliderHtml(key, def, extra = '') {
     <output class="ins__out" for="ins-${key}" data-reset="${key}" title="Doble toque: restablecer"></output>
     <input id="ins-${key}" class="ins__range" type="range" min="${def.min}" max="${def.max}" step="${def.step}" ${extra}></div>`;
 }
+function colorGroup(target, label, allowNone) {
+  return `<div class="ins__colors" role="group" aria-label="${label}">
+    ${allowNone ? chip(`data-ctarget="${target}" data-cvalue="none"`, 'Sin') : ''}
+    ${SWATCHES.map(([hex, name]) => `<button type="button" class="ins__swatch" data-ctarget="${target}" data-cvalue="${hex}" aria-label="${label}: ${name}" aria-pressed="false" style="--sw:${hex}"></button>`).join('')}
+    <input type="color" class="ins__color" data-ctarget="${target}" aria-label="${label}: color personalizado" value="#ffffff"></div>`;
+}
+
+function textSection() {
+  const fonts = [...new Set(FONTS.map((f) => f.category))]
+    .map((cat) => `<optgroup label="${cat}">${FONTS.filter((f) => f.category === cat).map((f) => `<option value="${esc(f.id)}">${esc(f.id)}</option>`).join('')}</optgroup>`).join('');
+  const anim = (key, out) => ANIMATIONS.map((a) => `<option value="${a.id}">${out ? a.labelOut : a.label}</option>`).join('');
+  const range = (key) => sliderHtml(`t-${key}`, TEXT_RANGES[key], `data-text="${key}"`);
+  return `<section class="ins__sec" aria-labelledby="ins-h-text"><h3 id="ins-h-text">Texto</h3>
+    <label class="ins__label" for="ins-t-content">Contenido</label>
+    <textarea id="ins-t-content" class="ins__textarea" rows="3" maxlength="500" data-text="content"></textarea>
+    <label class="ins__label" for="ins-t-font">Tipografía</label>
+    <select id="ins-t-font" class="ins__select" data-text="font">${fonts}</select>
+    <div class="ins__chips" role="group" aria-label="Estilo del texto">
+      <button type="button" class="ins__icon" data-text-toggle="bold" aria-pressed="false" aria-label="Negrita" title="Negrita">${icon('bold')}</button>
+      <button type="button" class="ins__icon" data-align="left" aria-pressed="false" aria-label="Alinear a la izquierda" title="Alinear a la izquierda">${icon('alignLeft')}</button>
+      <button type="button" class="ins__icon" data-align="center" aria-pressed="false" aria-label="Centrar" title="Centrar">${icon('alignCenter')}</button>
+      <button type="button" class="ins__icon" data-align="right" aria-pressed="false" aria-label="Alinear a la derecha" title="Alinear a la derecha">${icon('alignRight')}</button>
+      ${chip('data-text-toggle="shadow"', 'Sombra')}</div>
+    ${range('size')}
+    <h4 class="ins__sub">Color del texto</h4>${colorGroup('color', 'Color del texto', false)}
+    <h4 class="ins__sub">Fondo</h4>${colorGroup('background', 'Fondo del texto', true)}${range('backgroundOpacity')}
+    <h4 class="ins__sub">Contorno</h4>${colorGroup('stroke', 'Contorno del texto', true)}
+    <h4 class="ins__sub">Animación de entrada</h4>
+    <select id="ins-t-animIn" class="ins__select" aria-label="Animación de entrada" data-text="animIn">${anim('animIn', false)}</select>${range('animInDuration')}
+    <h4 class="ins__sub">Animación de salida</h4>
+    <select id="ins-t-animOut" class="ins__select" aria-label="Animación de salida" data-text="animOut">${anim('animOut', true)}</select>${range('animOutDuration')}</section>`;
+}
+
 const chip = (attrs, label) => `<button type="button" class="ins__chip" ${attrs} aria-pressed="false">${label}</button>`;
 const iconButton = (action, name, label) => `<button type="button" class="ins__icon" data-action="${action}" aria-label="${label}" title="${label}">${icon(name)}</button>`;
 
@@ -51,6 +93,7 @@ export function createInspector(root, { store }) {
     const parts = [];
     if (!visual && c.kind !== 'audio') return '';
     if (c.kind === 'audio') return '<p class="ins__note">El audio se edita en su propio panel (próximamente).</p>';
+    if (c.kind === 'text') parts.push(textSection());
 
     parts.push(`<section class="ins__sec" aria-labelledby="ins-h-filters"><h3 id="ins-h-filters">Filtros</h3>
       <div class="ins__chips" role="group" aria-label="Filtros">${PRESETS.map((p) => chip(`data-preset="${p.id}"`, p.label)).join('')}</div>
@@ -118,6 +161,7 @@ export function createInspector(root, { store }) {
       if (el) pressed(el, c.flip[key]);
     }
     for (const el of body.querySelectorAll('[data-speed]')) pressed(el, Number(el.dataset.speed) === c.speed);
+    if (c.kind === 'text') syncText(c.text);
     const hasPrev = Boolean(previousAdjacent(project, c));
     const note = body.querySelector('[data-trans-note]');
     if (note) note.textContent = hasPrev ? '' : 'Necesita un clip justo antes, en la misma pista.';
@@ -127,6 +171,31 @@ export function createInspector(root, { store }) {
     }
     const dur = body.querySelector('[data-prop="trdur"]');
     if (dur) dur.disabled = !c.transition;
+  }
+
+  function syncText(t) {
+    const area = body.querySelector('[data-text="content"]');
+    if (area.value !== t.content) area.value = t.content;
+    body.querySelector('[data-text="font"]').value = t.font;
+    const font = FONTS.find((f) => f.id === t.font);
+    const bold = body.querySelector('[data-text-toggle="bold"]');
+    bold.disabled = font.weights.length < 2;
+    pressed(bold, resolveWeight(t.font, t.weight) >= 600);
+    pressed(body.querySelector('[data-text-toggle="shadow"]'), t.shadow);
+    for (const el of body.querySelectorAll('[data-align]')) pressed(el, el.dataset.align === t.align);
+    for (const key of Object.keys(TEXT_RANGES)) setRange(body.querySelector(`[data-text="${key}"]`), t[key], TEXT_RANGES[key].step);
+    body.querySelector('[data-text="backgroundOpacity"]').disabled = !t.background;
+    for (const target of ['color', 'background', 'stroke']) {
+      const value = t[target];
+      for (const el of body.querySelectorAll(`button[data-ctarget="${target}"]`)) {
+        pressed(el, el.dataset.cvalue === 'none' ? value === null : value !== null && el.dataset.cvalue === value.toLowerCase());
+      }
+      body.querySelector(`input[data-ctarget="${target}"]`).value = value ?? '#ffffff';
+    }
+    for (const [key, durKey] of [['animIn', 'animInDuration'], ['animOut', 'animOutDuration']]) {
+      body.querySelector(`[data-text="${key}"]`).value = t[key];
+      body.querySelector(`[data-text="${durKey}"]`).disabled = t[key] === 'none';
+    }
   }
 
   function show(id) {
@@ -147,9 +216,15 @@ export function createInspector(root, { store }) {
   });
 
   // --- entradas de deslizador: un arrastre completo es un solo paso de historial
+  const patchText = (text, coalesce) => run({ type: 'clip/update', clipId, patch: { text }, ...(coalesce ? { coalesce } : {}) });
+
   on(root, 'input', (e) => {
     const input = e.target;
-    if (!(input instanceof HTMLInputElement) || !clipId) return;
+    if (!clipId) return;
+    if (input instanceof HTMLTextAreaElement && input.dataset.text === 'content') { patchText({ content: input.value }, `ins:${clipId}:content`); sync(); return; }
+    if (!(input instanceof HTMLInputElement)) return;
+    if (input.type === 'color') { patchText({ [input.dataset.ctarget]: input.value }, `ins:${clipId}:${input.dataset.ctarget}`); sync(); return; }
+    if (input.dataset.text) { patchText({ [input.dataset.text]: Number(input.value) }, `ins:${clipId}:${input.id}`); sync(); return; }
     const value = Number(input.value);
     const key = `ins:${clipId}:${input.id}`;
     if (input.dataset.fx) run({ type: 'effect/set', clipId, effectType: input.dataset.fx, value, coalesce: key });
@@ -159,7 +234,18 @@ export function createInspector(root, { store }) {
     else if (input.dataset.prop) run({ type: 'clip/update', clipId, patch: { transform: { [input.dataset.prop]: value } }, coalesce: key });
     sync();
   });
-  on(root, 'change', (e) => { if (e.target instanceof HTMLInputElement) store.endCoalesce(); });
+  on(root, 'change', (e) => {
+    const el = e.target;
+    if (el instanceof HTMLSelectElement && el.dataset.text && clipId) {
+      if (el.dataset.text === 'font') {
+        const bold = clip().text.weight >= 550;
+        patchText({ font: el.value, weight: resolveWeight(el.value, bold ? 700 : 400) });
+      } else patchText({ [el.dataset.text]: el.value });
+      sync();
+      return;
+    }
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) store.endCoalesce();
+  });
 
   on(root, 'dblclick', (e) => {
     const reset = e.target.closest('[data-reset]');
@@ -177,6 +263,10 @@ export function createInspector(root, { store }) {
     if (!btn || btn.disabled || !clipId) return;
     const c = clip();
     const d = btn.dataset;
+    if (d.ctarget && d.cvalue) { patchText({ [d.ctarget]: d.cvalue === 'none' ? null : d.cvalue }); sync(); return; }
+    if (d.align) { patchText({ align: d.align }); sync(); return; }
+    if (d.textToggle === 'bold') { patchText({ weight: resolveWeight(c.text.font, c.text.weight >= 600 ? 400 : 700) }); sync(); return; }
+    if (d.textToggle === 'shadow') { patchText({ shadow: !c.text.shadow }); sync(); return; }
     if (d.preset) { lastPreset = d.preset; intensity = 1; run({ type: 'effect/preset', clipId, presetId: d.preset }); }
     else if (d.action === 'clear-fx') { lastPreset = null; run({ type: 'effect/clear', clipId }); }
     else if (d.fit) run({ type: 'clip/update', clipId, patch: { fit: d.fit } });

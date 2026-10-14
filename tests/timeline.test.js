@@ -160,3 +160,86 @@ test('acciones: dividir, duplicar, borrar y empujar con el teclado', () => {
   assert.equal(deleteSelected(store).error.code, 'no_selection');
   assert.equal(nudgeSelected(store, 1).error.code, 'no_selection');
 });
+
+import { addEmojiClip, addOverlayAsset, addStyledText } from '../src/timeline/actions.js';
+import { EMOJI, STICKERS, TEXT_STYLES } from '../src/text/stickers.js';
+
+test('textos: dos a la vez van a pistas distintas en vez de desplazarse', () => {
+  const { store } = setup();
+  const a = addTextClip(store, { text: { content: 'uno' } });
+  store.setPlayhead(1);
+  const b = addTextClip(store, { text: { content: 'dos' } });
+  const p = store.getProject();
+  assert.equal(p.clips[b.clipId].start, 1, 'empieza donde está el cursor');
+  assert.notEqual(p.clips[a.clipId].trackId, p.clips[b.clipId].trackId, 'solapan en el tiempo: otra pista');
+  assert.equal(p.tracks.filter((t) => t.kind === 'text').length, 2);
+  store.setPlayhead(10);
+  const c = addTextClip(store, { text: { content: 'tres' } });
+  assert.equal(store.getProject().clips[c.clipId].trackId, p.clips[a.clipId].trackId, 'si cabe, reutiliza la primera pista');
+  assert.equal(store.getProject().tracks.filter((t) => t.kind === 'text').length, 2, 'sin pista de más');
+});
+
+test('textos: una pista bloqueada se salta y se crea otra', () => {
+  const { store, text } = setup();
+  store.dispatch({ type: 'track/update', trackId: text.id, patch: { locked: true } });
+  const r = addTextClip(store, { text: { content: 'hola' } });
+  assert.ok(r.ok);
+  assert.notEqual(store.getProject().clips[r.clipId].trackId, text.id);
+});
+
+test('addStyledText aplica el estilo validado; un estilo inválido no deja nada a medias', () => {
+  const { store } = setup();
+  const ok = addStyledText(store, { font: 'Bebas Neue', weight: 400, size: 200, color: '#ff0000' }, 'HOLA');
+  const t = store.getProject().clips[ok.clipId].text;
+  assert.deepEqual([t.content, t.font, t.size, t.color], ['HOLA', 'Bebas Neue', 200, '#ff0000']);
+  const before = Object.keys(store.getProject().clips).length;
+  const bad = addStyledText(store, { font: 'Comic Sans' });
+  assert.equal(bad.ok, false);
+  assert.equal(Object.keys(store.getProject().clips).length, before, 'el texto a medio crear se retira');
+  for (const style of TEXT_STYLES) assert.ok(addStyledText(store, style.text, style.label).ok, `estilo ${style.id} es válido`);
+});
+
+test('emoji: texto grande sin sombra con animación de entrada', () => {
+  const { store } = setup();
+  const r = addEmojiClip(store, '🔥');
+  const t = store.getProject().clips[r.clipId].text;
+  assert.deepEqual([t.content, t.size, t.shadow, t.animIn], ['🔥', 260, false, 'pop']);
+  assert.equal(new Set(EMOJI).size, EMOJI.length);
+});
+
+test('capas superpuestas: encima de la base, sin mover lo existente y reutilizando pistas libres', () => {
+  const { store, video, photo, movie } = setup();
+  const base = addAssetClip(store, movie.id);
+  const first = addOverlayAsset(store, photo.id);
+  let p = store.getProject();
+  assert.equal(p.clips[base.clipId].start, 0);
+  assert.notEqual(p.clips[first.clipId].trackId, video.id, 'no cae en la pista base');
+  assert.equal(p.clips[first.clipId].start, 0);
+  assert.equal(p.clips[first.clipId].transform.scale, 0.35);
+  assert.equal(p.clips[first.clipId].duration, 3);
+  const second = addOverlayAsset(store, photo.id);
+  p = store.getProject();
+  assert.notEqual(p.clips[second.clipId].trackId, p.clips[first.clipId].trackId, 'solapa con el primero: otra capa');
+  store.setPlayhead(5);
+  const third = addOverlayAsset(store, photo.id);
+  assert.equal(store.getProject().clips[third.clipId].trackId, p.clips[first.clipId].trackId, 'cabe en la primera capa');
+  assert.equal(addOverlayAsset(store, 'nada').error.code, 'no_asset');
+  const song = createAsset({ kind: 'audio', name: 's', duration: 5 });
+  store.dispatch({ type: 'asset/add', asset: song });
+  assert.equal(addOverlayAsset(store, song.id).error.code, 'no_asset', 'el audio no es una capa');
+  const vid = addOverlayAsset(store, movie.id, { at: 20 });
+  assert.equal(store.getProject().clips[vid.clipId].duration, 10, 'un vídeo superpuesto dura lo que el archivo');
+});
+
+test('stickers: catálogo bien formado y sin recursos externos', () => {
+  assert.ok(STICKERS.length >= 12);
+  assert.equal(new Set(STICKERS.map((s) => s.id)).size, STICKERS.length);
+  for (const s of STICKERS) {
+    assert.match(s.svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="200" height="200" viewBox="0 0 200 200">.*<\/svg>$/s, s.id);
+    assert.doesNotMatch(s.svg, /<script|href=|<image|<foreignObject|<text|onload|javascript:/i, `${s.id} sin contenido activo ni externo`);
+    assert.ok(s.label.length > 2);
+    const opens = (s.svg.match(/<(?!\/|!)[a-zA-Z]/g) ?? []).length;
+    const closes = (s.svg.match(/<\/[a-zA-Z]+>/g) ?? []).length + (s.svg.match(/\/>/g) ?? []).length;
+    assert.equal(opens, closes, `${s.id}: etiquetas equilibradas`);
+  }
+});

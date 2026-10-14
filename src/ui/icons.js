@@ -16,6 +16,13 @@ const PATHS = {
   flipH: '<path d="M12 3v18"/><path d="M8 7 3 12l5 5V7z"/><path d="M16 7l5 5-5 5V7z"/>',
   flipV: '<path d="M3 12h18"/><path d="M7 8l5-5 5 5H7z"/><path d="M7 16l5 5 5-5H7z"/>',
   reset: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/>',
+  alignLeft: '<path d="M3 6h18M3 12h12M3 18h16"/>',
+  alignCenter: '<path d="M3 6h18M6 12h12M4 18h16"/>',
+  alignRight: '<path d="M3 6h18M9 12h12M5 18h16"/>',
+  bold: '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>',
+  text: '<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
+  smile: '<circle cx="12" cy="12" r="9"/><path d="M8 14a4.5 4.5 0 0 0 8 0M9 9.5h.01M15 9.5h.01"/>',
+  sticker: '<path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
 };

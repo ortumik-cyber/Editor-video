@@ -1,0 +1,10 @@
+/* Panel para añadir texto, stickers y emoji. Usa los tokens de ../ui/tokens.css. */
+.add { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-3) var(--space-4); background: var(--color-background); color: var(--color-foreground); font: 500 14px/1.4 var(--font-sans); }
+.add__sec h3 { margin: 0 0 var(--space-2); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-muted-foreground); }
+.add__chips { display: flex; flex-wrap: nowrap; gap: var(--touch-gap); overflow-x: auto; scrollbar-width: none; }
+.add__chip { flex: none; min-height: var(--touch-target); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: var(--color-card); color: var(--color-card-foreground); font: inherit; cursor: pointer; white-space: nowrap; }
+.add__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: var(--touch-gap); }
+.add__tile { display: grid; place-items: center; aspect-ratio: 1; min-height: var(--touch-target); padding: 6px; border: 0; border-radius: var(--radius-md); background: var(--color-card); cursor: pointer; font-size: 28px; line-height: 1; transition: background-color var(--motion-fast) var(--ease-out); }
+.add__tile svg { width: 100%; height: 100%; }
+.add__chip:hover, .add__tile:hover { background: color-mix(in oklab, var(--color-card) 80%, white); }
+.add__status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

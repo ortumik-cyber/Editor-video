@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../src/timeline/timeline.css">
   <link rel="stylesheet" href="../src/player/preview.css">
   <link rel="stylesheet" href="../src/effects/panel.css">
+  <link rel="stylesheet" href="../src/text/picker.css">
   <style>
     html, body { height: 100%; margin: 0; background: var(--color-background); color: var(--color-foreground); font: 400 var(--text-base)/var(--leading-base) var(--font-sans); }
     body { display: flex; flex-direction: column; }
@@ -20,6 +21,9 @@
     .asset span { display: block; padding: 4px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
     @media (min-width: 800px) { .stage { grid-template-columns: 1fr 340px; } }
+    .adder { padding: 0 var(--space-4) var(--space-3); }
+    .adder summary { display: inline-flex; list-style: none; }
+    .adder[open] #add-panel { max-height: 260px; overflow-y: auto; margin-top: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
     #preview { min-height: 200px; }
     #inspector { border-left: 1px solid var(--color-border); max-height: 100%; }
     #timeline { flex: none; height: 340px; border-top: 1px solid var(--color-border); }
@@ -34,6 +38,7 @@
     <span id="msg" role="status"></span>
   </div>
   <div class="tray" id="tray"></div>
+  <details class="adder"><summary class="pill pill--ghost">Añadir texto, stickers y emoji</summary><div id="add-panel"></div></details>
   <div class="stage"><div id="preview"></div><div id="inspector"></div></div>
   <div id="timeline"></div>
   <script type="module">
@@ -42,6 +47,7 @@
     import { createTimeline, addAssetClip, addTextClip } from '../src/timeline/index.js';
     import { createPreview } from '../src/player/index.js';
     import { createInspector } from '../src/effects/panel.js';
+    import { createAddPanel } from '../src/text/picker.js';
 
     const store = createStore(createProject({ name: 'Demo' }));
     const repo = createRepo(createIndexedDbBackend(`editor-video-dev-${Date.now()}`));
@@ -50,6 +56,7 @@
     const preview = createPreview(document.getElementById('preview'), { store, library });
     const player = preview.player;
     createInspector(document.getElementById('inspector'), { store });
+    createAddPanel(document.getElementById('add-panel'), { store, library });
     player.subscribe(({ playing }) => { timeline.follow = playing; });
     Object.assign(window, { store, library, timeline, player });
 
