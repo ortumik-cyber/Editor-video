@@ -34,10 +34,13 @@ export const defaultText = () => ({
   color: '#FFFFFF',
   align: 'center',
   background: null,
+  backgroundOpacity: 0.6,
   stroke: null,
   shadow: true,
   animIn: 'none',
   animOut: 'none',
+  animInDuration: 0.5,
+  animOutDuration: 0.5,
 });
 
 export function createTrack({ kind, name } = {}) {

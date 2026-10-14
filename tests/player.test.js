@@ -104,7 +104,10 @@ test('wrapLines: ajusta por ancho y respeta saltos de línea', () => {
   const measure = (s) => s.length * 10;
   assert.deepEqual(wrapLines('hola mundo cruel', 100, measure), ['hola mundo', 'cruel']);
   assert.deepEqual(wrapLines('uno\ndos tres', 1000, measure), ['uno', 'dos tres']);
-  assert.deepEqual(wrapLines('palabralarguísima', 50, measure), ['palabralarguísima']);
+  assert.deepEqual(wrapLines('palabralarguísima', 50, measure), ['palab', 'ralar', 'guísi', 'ma'], 'una palabra que no cabe se parte por caracteres');
+  assert.deepEqual(wrapLines('hola palabralarga fin', 50, measure), ['hola', 'palab', 'ralar', 'ga', 'fin']);
+  assert.deepEqual(wrapLines('😀😀😀😀😀😀', 40, (s) => [...s].length * 10), ['😀😀😀😀', '😀😀'], 'no parte un emoji por la mitad');
+  assert.ok(wrapLines('x'.repeat(30), 1, () => 99).every((l) => l.length >= 1), 'siempre avanza aunque nada quepa');
   assert.deepEqual(wrapLines('', 50, measure), ['']);
 });
 
@@ -288,4 +291,114 @@ test('centeredCrop: recorte centrado a la proporción pedida', () => {
   assert.deepEqual([wide.w, wide.h, wide.x, wide.y], [1, 0.5, 0, 0.25]);
   assert.ok(Math.abs(cropRatio(1600, 900, square) - 1) < 1e-9);
   assert.ok(Math.abs(cropRatio(1600, 900, null) - 16 / 9) < 1e-9);
+});
+
+// ---------- texto y tipografías ----------
+
+import { existsSync } from 'node:fs';
+import { FONTS, FONT_IDS, ANIMATIONS, fontFileName, resolveWeight, textError } from '../src/core/index.js';
+
+test('tipografías: cada peso declarado existe en assets/fonts y hay licencia', () => {
+  for (const f of FONTS) {
+    for (const w of f.weights) assert.ok(existsSync(new URL(`../assets/fonts/${fontFileName(f.id, w)}`, import.meta.url)), `${f.id} ${w}`);
+    const slug = f.id.toLowerCase().replaceAll(' ', '-');
+    assert.ok(existsSync(new URL(`../assets/fonts/licenses/${slug}.txt`, import.meta.url)), `licencia de ${f.id}`);
+  }
+  assert.equal(new Set(FONT_IDS).size, FONT_IDS.length);
+  assert.equal(new Set(ANIMATIONS.map((a) => a.id)).size, ANIMATIONS.length);
+  assert.equal(fontFileName('Bebas Neue', 400), 'bebas-neue-latin-400-normal.woff2');
+});
+
+test('resolveWeight: el peso disponible más cercano', () => {
+  assert.equal(resolveWeight('Bebas Neue', 700), 400);
+  assert.equal(resolveWeight('Inter', 700), 700);
+  assert.equal(resolveWeight('Inter', 500), 400);
+  assert.equal(resolveWeight('Inter', 600), 700);
+  assert.equal(resolveWeight('Desconocida', 900), 900);
+});
+
+test('texto: validación completa desde clip/update', () => {
+  const { store, text } = setup();
+  const t = createClip({ trackId: text.id, kind: 'text', start: 0, duration: 2 });
+  store.dispatch({ type: 'clip/add', clip: t });
+  const set = (patch) => store.dispatch({ type: 'clip/update', clipId: t.id, patch: { text: patch } });
+  assert.ok(set({ content: 'Ñandú ¿qué?', font: 'Bebas Neue', weight: 400, size: 120, color: '#ff00aa', align: 'left' }).ok);
+  assert.equal(store.getProject().clips[t.id].text.font, 'Bebas Neue');
+  for (const [patch, message] of [
+    [{ font: 'Comic Sans' }, /Tipografía/], [{ size: 2 }, /tamaño/], [{ size: 9999 }, /tamaño/], [{ color: 'rojo' }, /Color/],
+    [{ background: '#12' }, /Color/], [{ stroke: 5 }, /Color/], [{ align: 'justify' }, /Alineación/], [{ shadow: 'sí' }, /sombra/],
+    [{ backgroundOpacity: 2 }, /opacidad/], [{ animIn: 'explotar' }, /Animación/], [{ animInDuration: 9 }, /duración/],
+    [{ content: 'x'.repeat(501) }, /500/], [{ content: 42 }, /500/],
+    [{ animIn: 'fade', animInDuration: 1.5, animOut: 'fade', animOutDuration: 1 }, /superan/],
+  ]) {
+    const r = set(patch);
+    assert.equal(r.ok, false, JSON.stringify(patch));
+    assert.match(r.error.message, message);
+  }
+  assert.ok(set({ animIn: 'fade', animInDuration: 1, animOut: 'none', animOutDuration: 3 }).ok, 'sin animación de salida su duración no cuenta');
+  assert.equal(textError(store.getProject().clips[t.id].text, 2), null);
+  const afterBad = store.getProject().clips[t.id].text;
+  set({ size: 1 });
+  assert.deepEqual(store.getProject().clips[t.id].text, afterBad, 'un parche inválido no cambia nada');
+});
+
+import { revealLines, textAnimation } from '../src/text/animation.js';
+
+function textClip(overrides = {}) {
+  const { store, text } = setup();
+  const t = createClip({ trackId: text.id, kind: 'text', start: 10, duration: 4 });
+  store.dispatch({ type: 'clip/add', clip: t });
+  assert.ok(store.dispatch({ type: 'clip/update', clipId: t.id, patch: { text: overrides } }).ok);
+  return store.getProject().clips[t.id];
+}
+
+test('textAnimation: sin animación el texto está intacto en todo el clip', () => {
+  const clip = textClip();
+  for (const t of [10, 10.2, 12, 13.9]) assert.deepEqual(textAnimation(clip, t), { opacity: 1, dx: 0, dy: 0, scale: 1, reveal: 1 });
+});
+
+test('textAnimation: entrada y salida con progreso, fuera de la ventana vuelve a lo normal', () => {
+  const clip = textClip({ animIn: 'fade', animInDuration: 1, animOut: 'fade', animOutDuration: 1 });
+  assert.equal(textAnimation(clip, 10).opacity, 0);
+  const mid = textAnimation(clip, 10.5).opacity;
+  assert.ok(mid > 0.5 && mid < 1, `ease-out a mitad: ${mid}`);
+  assert.equal(textAnimation(clip, 11).opacity, 1);
+  assert.equal(textAnimation(clip, 12).opacity, 1);
+  assert.equal(textAnimation(clip, 14 - 1e-9).opacity < 1e-6, true, 'termina transparente');
+  assert.ok(textAnimation(clip, 13.5).opacity > 0.5);
+});
+
+test('textAnimation: deslizamientos entran y salen en la dirección indicada', () => {
+  const dirs = { 'slide-up': ['dy', 1], 'slide-down': ['dy', -1], 'slide-left': ['dx', 1], 'slide-right': ['dx', -1] };
+  for (const [kind, [axis, sign]] of Object.entries(dirs)) {
+    const clip = textClip({ animIn: kind, animInDuration: 1, animOut: kind, animOutDuration: 1 });
+    const start = textAnimation(clip, 10);
+    assert.ok(Math.abs(start[axis] - sign * 0.12) < 1e-9, `${kind} entra desde ${sign > 0 ? '+' : '-'}${axis}`);
+    assert.equal(textAnimation(clip, 11)[axis], 0);
+    const end = textAnimation(clip, 14 - 1e-9);
+    assert.ok(Math.abs(end[axis] + sign * 0.12) < 1e-6, `${kind} sale hacia el lado contrario al de entrada`);
+  }
+});
+
+test('textAnimation: rebote con sobrepaso, zoom y máquina de escribir', () => {
+  const pop = textClip({ animIn: 'pop', animInDuration: 1 });
+  assert.ok(Math.abs(textAnimation(pop, 10).scale) < 1e-9);
+  const peak = Math.max(...Array.from({ length: 50 }, (_, i) => textAnimation(pop, 10 + i / 50).scale));
+  assert.ok(peak > 1.02 && peak < 1.3, `sobrepaso: ${peak}`);
+  assert.equal(textAnimation(pop, 11).scale, 1);
+  const zoom = textClip({ animIn: 'zoom', animInDuration: 1 });
+  assert.equal(textAnimation(zoom, 10).scale, 0.5);
+  const type = textClip({ animIn: 'typewriter', animInDuration: 2 });
+  assert.equal(textAnimation(type, 10).reveal, 0);
+  assert.ok(Math.abs(textAnimation(type, 11).reveal - 0.5) < 1e-9, 'las letras salen a ritmo constante');
+  assert.equal(textAnimation(type, 12).reveal, 1);
+  assert.equal(textAnimation(type, 10).opacity, 1, 'la máquina de escribir no cambia la opacidad');
+});
+
+test('revealLines: reparte las letras por líneas y conserva la estructura', () => {
+  assert.deepEqual(revealLines(['hola', 'mundo'], 1), ['hola', 'mundo']);
+  assert.deepEqual(revealLines(['hola', 'mundo'], 0), ['', '']);
+  assert.deepEqual(revealLines(['hola', 'mundo'], 0.5), ['hola', '']);
+  assert.deepEqual(revealLines(['hola', 'mundo'], 0.7), ['hola', 'mu']);
+  assert.deepEqual(revealLines([''], 0.5), ['']);
 });

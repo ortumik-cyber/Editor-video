@@ -1,5 +1,6 @@
 import { EFFECT_TYPES, TRANSITION_IDS, foldEffects } from '../core/effects.js';
-import { cropRect, drawText, layerGeometry } from '../player/compose.js';
+import { cropRect, drawText, layerGeometry, textLayout } from '../player/compose.js';
+import { revealLines, textAnimation } from '../text/animation.js';
 import { BLUR_FRAG, LAYER_FRAG, LAYER_VERT, QUAD_VERT, TRANSITION_FRAG } from './shaders.js';
 
 /** Color '#rrggbb' a [r, g, b] en 0-1. */
@@ -155,11 +156,9 @@ export function createGlRenderer({ doc = globalThis.document } = {}) {
     return entry.tex;
   }
 
-  function textTexture(clip, settings, scale) {
+  /** Textura del texto sin movimiento: el desplazamiento y el zoom de las animaciones van por matriz. */
+  function textTexture(clip, settings, scale, reveal, fontVersion) {
     const { text, transform } = clip;
-    const key = JSON.stringify([text, transform.x, transform.y, transform.scale, transform.rotation, settings.width, settings.height, size.w, size.h]);
-    const hit = textTextures.get(key);
-    if (hit) return hit;
     textCanvas ??= doc.createElement('canvas');
     textCanvas.width = size.w;
     textCanvas.height = size.h;
@@ -167,7 +166,12 @@ export function createGlRenderer({ doc = globalThis.document } = {}) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, size.w, size.h);
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawText(ctx, clip, settings.width, settings.height, 1);
+    const { lines } = textLayout(ctx, clip, settings.width);
+    const visible = revealLines(lines, reveal).join('\n');
+    const key = JSON.stringify([text, transform.x, transform.y, transform.scale, transform.rotation, settings.width, settings.height, size.w, size.h, fontVersion, visible.length]);
+    const hit = textTextures.get(key);
+    if (hit) return hit;
+    drawText(ctx, clip, settings.width, settings.height, 1, { reveal });
     const tex = newTexture();
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
     textTextures.set(key, tex);
@@ -197,7 +201,8 @@ export function createGlRenderer({ doc = globalThis.document } = {}) {
 
   /** Dibuja una capa en `target` (null = lienzo). Devuelve false si su origen aún no está listo. */
   function drawLayer(target, layer, ctx) {
-    const { clip, opacity } = layer;
+    const { clip } = layer;
+    let { opacity } = layer;
     const { settings, getSource, scale } = ctx;
     const W = settings.width;
     const H = settings.height;
@@ -206,8 +211,12 @@ export function createGlRenderer({ doc = globalThis.document } = {}) {
     let uv = [0, 0, 1, 1];
     let texel = [1 / size.w, 1 / size.h];
     if (clip.kind === 'text') {
-      tex = textTexture(clip, settings, scale);
-      geometry = { cx: W / 2, cy: H / 2, w: W, h: H, rotation: 0 };
+      const anim = textAnimation(clip, layer.time ?? clip.start);
+      tex = textTexture(clip, settings, scale, anim.reveal, ctx.fontVersion);
+      const px = W / 2 + clip.transform.x * W;
+      const py = H / 2 + clip.transform.y * H;
+      geometry = { cx: px + (W / 2 - px) * anim.scale + anim.dx * W, cy: py + (H / 2 - py) * anim.scale + anim.dy * H, w: W * anim.scale, h: H * anim.scale, rotation: 0 };
+      opacity *= anim.opacity;
     } else {
       const source = getSource(clip);
       if (!source) return false;
@@ -272,11 +281,11 @@ export function createGlRenderer({ doc = globalThis.document } = {}) {
     canvas,
     isLost: () => lost || gl.isContextLost(),
     /** Dibuja `plan` a `scale` veces el tamaño lógico del proyecto. */
-    render(plan, settings, getSource, { scale = 1 } = {}) {
+    render(plan, settings, getSource, { scale = 1, fontVersion = 0 } = {}) {
       resize(Math.max(1, Math.round(settings.width * scale)), Math.max(1, Math.round(settings.height * scale)));
       clear(null, [...parseColor(settings.background), 1]);
       usedKeys = new Set();
-      const ctx = { settings, getSource, scale: size.w / settings.width };
+      const ctx = { settings, getSource, scale: size.w / settings.width, fontVersion };
       for (const item of plan) {
         if (item.kind === 'transition') drawTransition(item, ctx);
         else drawLayer(null, item, ctx);

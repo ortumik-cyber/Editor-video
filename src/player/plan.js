@@ -41,7 +41,7 @@ function clampedSource(project, clip, t) {
 
 function layerAt(project, clip, t, trackIndex) {
   const inside = Math.min(Math.max(t, clip.start), clipEnd(clip) - 0.001);
-  return { kind: 'layer', clip, trackIndex, srcTime: clampedSource(project, clip, t), opacity: clip.transform.opacity * fadeFactor(clip, inside) };
+  return { kind: 'layer', clip, trackIndex, time: t, srcTime: clampedSource(project, clip, t), opacity: clip.transform.opacity * fadeFactor(clip, inside) };
 }
 
 /**

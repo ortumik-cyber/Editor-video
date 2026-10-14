@@ -3,6 +3,7 @@ import { createAudioGraph } from './audio.js';
 import { composeFrame } from './compose.js';
 import { flattenLayers, mediaPlan, upcomingMedia, visualPlan } from './plan.js';
 import { createGlRenderer } from '../render/gl.js';
+import { fonts } from '../text/fonts.js';
 import { createMediaPool } from './pool.js';
 
 const LOOKAHEAD = 1;
@@ -61,7 +62,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     const h = Math.round(settings.height * scale);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     if (renderer && !renderer.isLost()) {
-      const out = renderer.render(plan, settings, sourceFor, { scale: w / settings.width });
+      const out = renderer.render(plan, settings, sourceFor, { scale: w / settings.width, fontVersion: fonts.version() });
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(out, 0, 0);
     } else {
@@ -75,6 +76,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     const t = store.getState().playhead;
     const plan = visualPlan(project, t);
     const keep = new Set();
+    await fonts.loadFor(flattenLayers(plan).map((l) => l.clip));
     await Promise.all(flattenLayers(plan).map(async ({ clip, srcTime }) => {
       if (clip.kind === 'image') return loadImage(clip.assetId);
       if (clip.kind !== 'video') return undefined;
@@ -130,6 +132,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     sync(project, t);
     const plan = visualPlan(project, t);
     for (const { clip } of flattenLayers(plan)) if (clip.kind === 'image') loadImage(clip.assetId);
+    fonts.loadFor(flattenLayers(plan).map((l) => l.clip));
     draw(plan);
     setHead(t);
     stats.frames++;
@@ -170,6 +173,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     if (!playing) renderStill();
   });
 
+  fonts.load('Inter', 700);
   renderStill();
 
   return {

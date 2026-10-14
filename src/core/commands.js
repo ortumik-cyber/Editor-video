@@ -4,6 +4,7 @@ import {
   TRACK_KINDS, createTrack, snap,
 } from './project.js';
 import { EFFECTS, EFFECT_TYPES, TRANSITION_IDS, TRANSITION_RANGE, clampEffectValue, presetEffects } from './effects.js';
+import { textError } from './text.js';
 import { clipEnd, firstFreeStart, getClip, getTrack, previousAdjacent } from './selectors.js';
 
 export class CommandError extends Error {
@@ -279,6 +280,8 @@ const handlers = {
     if ('text' in patch) {
       if (clip.kind !== 'text') fail('kind', 'Solo los clips de texto tienen texto');
       next.text = { ...clip.text, ...patch.text };
+      const problem = textError(next.text, next.duration);
+      if (problem) fail('invalid', problem);
     }
     assertClipShape(p, next);
     return putClip(p, next);
