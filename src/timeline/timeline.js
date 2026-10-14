@@ -6,7 +6,7 @@ import { resolveMove, resolveTrim } from './edit.js';
 import {
   GUTTER, ZOOM_DEFAULT, clampZoom, contentWidth, rulerTicks, timeToX, waveformPath, xToTime, zoomScroll,
 } from './geometry.js';
-import { icon } from './icons.js';
+import { icon } from '../ui/icons.js';
 
 const TRACK_H = 64;
 const CLIP_H = 56;

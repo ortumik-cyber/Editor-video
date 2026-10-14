@@ -9,7 +9,7 @@ const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a}
 const FILES = ['con_audio.webm', 'musica.wav', 'foto.png', 'sin_audio.webm'];
 
 async function boot(page, base) {
-  await page.goto(`${base}/dev/timeline.html`);
+  await page.goto(`${base}/dev/editor.html`);
   await page.setInputFiles('#files', FILES.map((n) => join(dir, n)));
   await page.waitForSelector('.asset >> nth=3');
   for (let i = 0; i < 4; i++) await page.click(`.asset >> nth=${i}`);
@@ -37,7 +37,7 @@ function assertNoOverlap(list) {
   }
 }
 
-const app = await launch({ viewport: { width: 1000, height: 640 } });
+const app = await launch({ viewport: { width: 1000, height: 960 } });
 try {
   const { page } = app;
   await boot(page, app.base);
@@ -122,7 +122,8 @@ try {
   // --- zoom con botón y con Ctrl+rueda
   await page.click('[data-action="zoomIn"]');
   near(await page.evaluate(() => timeline.getZoom()), 100, 0.01, 'zoom +25 %');
-  await page.mouse.move(500, 400);
+  const scrollBox = await page.locator('.tl__scroll').boundingBox();
+  await page.mouse.move(scrollBox.x + scrollBox.width / 2, scrollBox.y + scrollBox.height / 2);
   await page.keyboard.down('Control');
   await page.mouse.wheel(0, -100);
   await page.keyboard.up('Control');
@@ -152,7 +153,7 @@ try {
 }
 
 // --- táctil: tocar selecciona; los tiradores solo aparecen en el seleccionado
-const touch = await launch({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
+const touch = await launch({ viewport: { width: 390, height: 1100 }, hasTouch: true, isMobile: true });
 try {
   const { page } = touch;
   await boot(page, touch.base);

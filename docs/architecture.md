@@ -9,7 +9,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 | 1 | Núcleo: modelo, comandos, store, deshacer/rehacer, persistencia | hecho |
 | 2 | Biblioteca: importar medios, miniaturas, metadatos, onda de audio | hecho |
 | 3 | Línea de tiempo: pistas, clips, arrastrar, recortar, dividir, zoom, cursor | hecho |
-| 4 | Motor de previsualización (Canvas/WebGL + WebAudio) | pendiente |
+| 4 | Reproductor: composición en canvas, audio sincronizado, controles | hecho |
 | 5 | Efectos y transiciones | pendiente |
 | 6 | Texto y stickers | pendiente |
 | 7 | Audio | pendiente |
@@ -53,6 +53,21 @@ Comportamiento:
 - Zoom con botones o Ctrl+rueda, anclado al puntero. No hay pellizco táctil todavía.
 - `timeline.follow = true` hace que la vista siga al cursor. El reproductor (módulo 4) lo activará.
 - `dev/timeline.html` es una página de desarrollo: importar medios, ponerlos en la línea y probar los gestos.
+
+## Reproductor (`src/player`)
+
+- `plan.js` (puro): qué se ve y qué suena en cada instante. Capas de abajo arriba, tiempo de origen con velocidad, fundidos, ganancia de audio (volumen x fundido x silencio de pista).
+- `compose.js`: `composeFrame(ctx, ajustes, capas, getSource)`. No sabe de dónde vienen las imágenes: `getSource(clip)` devuelve `{ image, width, height }`. La vista previa le da un `<video>`; la exportación (módulo 8) le dará un `VideoFrame`. Así los dos se ven igual.
+- `audio.js`: grafo de Web Audio. Cada elemento pasa por su ganancia hacia una salida con medidor de nivel (`player.getLevel()`). Permite volumen hasta 4x.
+- `pool.js`: un `<video>`/`<audio>` por clip activo o que empieza en el próximo segundo. Descarta los que llevan 2,5 s sin uso. `seekTo` agrupa saltos seguidos: gana el último.
+- `player.js`: reloj con `performance.now`. Los elementos lo siguen y se corrigen si se desvían más de 250 ms. Pausado, dibuja un fotograma fijo esperando a que cada vídeo llegue a su instante.
+- `preview.js`: lienzo con la proporción del proyecto (unidades de contenedor), reproducir, pausar, ir al inicio, reloj `m:ss.d` y Espacio.
+
+Unidades de la transformación de un clip: `x` e `y` son fracciones del ancho y alto del lienzo desde el centro; `scale` multiplica el tamaño tras el ajuste; `rotation` en grados; `opacity` de 0 a 1. `fit` es `contain` o `cover`. El fondo es `settings.background`.
+
+La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con la fuente indicada y, si no está cargada, con la del sistema (las fuentes llegan con el módulo 6).
+
+Pendiente: efectos y transiciones (módulo 5), que se enganchan en `composeFrame`.
 
 ## Reglas del modelo
 

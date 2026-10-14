@@ -4,6 +4,7 @@ export const SCHEMA_VERSION = 1;
 export const EPS = 1e-6;
 export const MIN_CLIP_DURATION = 0.1;
 export const FPS_OPTIONS = Object.freeze([24, 25, 30, 50, 60]);
+export const FIT_MODES = Object.freeze(['contain', 'cover']);
 
 export const ASPECTS = Object.freeze({
   '9:16': { width: 1080, height: 1920 },
@@ -64,6 +65,7 @@ export function createClip({ trackId, kind, assetId = null, start = 0, duration,
     duration: snap(dur),
     in: snap(inPoint),
     speed: 1,
+    fit: 'contain',
     volume: 1,
     fadeIn: 0,
     fadeOut: 0,
@@ -86,7 +88,7 @@ export function createProject({ name = 'Proyecto sin título', aspect = '9:16', 
     version: SCHEMA_VERSION,
     id: id ?? newId('prj'),
     name,
-    settings: { aspect, width: size.width, height: size.height, fps },
+    settings: { aspect, width: size.width, height: size.height, fps, background: '#000000' },
     assets: {},
     tracks,
     clips: {},

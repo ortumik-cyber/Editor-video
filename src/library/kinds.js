@@ -29,3 +29,11 @@ export function formatDuration(seconds) {
   const s = String(total % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
+
+/** m:ss.d para el reproductor. */
+export function formatClock(seconds) {
+  const total = Math.max(0, Math.floor(seconds * 10 + 1e-6));
+  const m = Math.floor(total / 600);
+  const s = String(Math.floor((total % 600) / 10)).padStart(2, '0');
+  return `${m}:${s}.${total % 10}`;
+}

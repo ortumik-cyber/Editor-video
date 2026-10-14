@@ -16,6 +16,8 @@ export function makeMedia() {
   ff('-f lavfi -i testsrc=duration=2:size=360x640:rate=30 -c:v libvpx sin_audio.webm');
   ff('-f lavfi -i sine=frequency=220:duration=4 musica.wav');
   ff('-f lavfi -i testsrc=size=1200x800 -frames:v 1 foto.png');
+  ff('-f lavfi -i color=c=red:s=320x180:r=30:d=3 -f lavfi -i sine=frequency=440:duration=3 -c:v libvpx -c:a libopus -shortest rojo.webm');
+  ff('-f lavfi -i color=c=green:s=200x200 -frames:v 1 verde.png');
   execSync('head -c 5000 /dev/urandom > roto.mp4 && : > vacio.mp4 && echo hola > notas.txt', { cwd: dir });
   return dir;
 }

@@ -1,6 +1,6 @@
 import { newId } from './ids.js';
 import {
-  ASPECTS, CLIP_KINDS_BY_TRACK, EPS, FPS_OPTIONS, MEDIA_CLIP_KINDS, MIN_CLIP_DURATION,
+  ASPECTS, CLIP_KINDS_BY_TRACK, EPS, FIT_MODES, FPS_OPTIONS, MEDIA_CLIP_KINDS, MIN_CLIP_DURATION,
   TRACK_KINDS, createTrack, snap,
 } from './project.js';
 import { clipEnd, firstFreeStart, getClip, getTrack } from './selectors.js';
@@ -79,7 +79,7 @@ const handlers = {
     return { ...p, name: name.trim() };
   },
 
-  'project/settings': (p, { aspect, fps }) => {
+  'project/settings': (p, { aspect, fps, background }) => {
     let settings = p.settings;
     if (aspect !== undefined) {
       const size = ASPECTS[aspect] ?? fail('invalid', `Formato inválido: ${aspect}`);
@@ -88,6 +88,10 @@ const handlers = {
     if (fps !== undefined) {
       if (!FPS_OPTIONS.includes(fps)) fail('invalid', `fps inválido: ${fps}`);
       settings = { ...settings, fps };
+    }
+    if (background !== undefined) {
+      if (!/^#[0-9a-f]{6}$/i.test(background)) fail('invalid', `Color inválido: ${background}`);
+      settings = { ...settings, background };
     }
     return { ...p, settings };
   },
@@ -242,6 +246,10 @@ const handlers = {
       next.speed = speed;
     }
     if ('volume' in patch) next.volume = clamp(patch.volume, VOLUME_RANGE);
+    if ('fit' in patch) {
+      if (!FIT_MODES.includes(patch.fit)) fail('invalid', `Ajuste inválido: ${patch.fit}`);
+      next.fit = patch.fit;
+    }
     if ('fadeIn' in patch) next.fadeIn = Math.max(0, snap(patch.fadeIn));
     if ('fadeOut' in patch) next.fadeOut = Math.max(0, snap(patch.fadeOut));
     if (next.fadeIn + next.fadeOut > next.duration + EPS) fail('bounds', 'Los fundidos superan la duración del clip');

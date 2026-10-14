@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMemoryBackend, createProject, createRepo, createStore } from '../src/core/index.js';
 import {
-  bucketsFor, computePeaks, createLibrary, detectKind, formatDuration, thumbnailTime, validateFile,
+  bucketsFor, computePeaks, createLibrary, detectKind, formatClock, formatDuration, thumbnailTime, validateFile,
 } from '../src/library/index.js';
 
 const file = (name, type = '', size = 1000) => ({ name, type, size });
@@ -26,6 +26,14 @@ test('formatDuration', () => {
   assert.equal(formatDuration(0), '0:00');
   assert.equal(formatDuration(65.4), '1:05');
   assert.equal(formatDuration(3725), '1:02:05');
+});
+
+test('formatClock: m:ss.d sin redondeo hacia arriba', () => {
+  assert.equal(formatClock(0), '0:00.0');
+  assert.equal(formatClock(1.26), '0:01.2');
+  assert.equal(formatClock(59.99), '0:59.9');
+  assert.equal(formatClock(125.5), '2:05.5');
+  assert.equal(formatClock(-3), '0:00.0');
 });
 
 test('computePeaks: máximo por tramo y entre canales', () => {

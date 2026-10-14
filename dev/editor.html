@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Línea de tiempo (desarrollo)</title>
+  <title>Editor (desarrollo)</title>
   <link rel="stylesheet" href="../src/ui/tokens.css">
   <link rel="stylesheet" href="../src/timeline/timeline.css">
+  <link rel="stylesheet" href="../src/player/preview.css">
   <style>
     html, body { height: 100%; margin: 0; background: var(--color-background); color: var(--color-foreground); font: 400 var(--text-base)/var(--leading-base) var(--font-sans); }
     body { display: flex; flex-direction: column; }
@@ -16,7 +17,8 @@
     .asset { flex: none; width: 96px; padding: 0; border: 0; border-radius: var(--radius-md); background: var(--color-card); color: inherit; font: 12px var(--font-sans); text-align: left; cursor: pointer; overflow: hidden; }
     .asset img { display: block; width: 100%; height: 56px; object-fit: cover; background: var(--color-muted); }
     .asset span { display: block; padding: 4px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    #timeline { flex: 1; min-height: 0; border-top: 1px solid var(--color-border); }
+    #preview { flex: 1; min-height: 200px; }
+    #timeline { flex: none; height: 340px; border-top: 1px solid var(--color-border); }
     input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
   </style>
 </head>
@@ -28,17 +30,22 @@
     <span id="msg" role="status"></span>
   </div>
   <div class="tray" id="tray"></div>
+  <div id="preview"></div>
   <div id="timeline"></div>
   <script type="module">
     import { createStore, createProject, createRepo, createIndexedDbBackend } from '../src/core/index.js';
     import { createLibrary, createDomAdapters, formatDuration } from '../src/library/index.js';
     import { createTimeline, addAssetClip, addTextClip } from '../src/timeline/index.js';
+    import { createPreview } from '../src/player/index.js';
 
     const store = createStore(createProject({ name: 'Demo' }));
     const repo = createRepo(createIndexedDbBackend(`editor-video-dev-${Date.now()}`));
     const library = createLibrary({ store, repo, adapters: createDomAdapters() });
     const timeline = createTimeline(document.getElementById('timeline'), { store, library });
-    Object.assign(window, { store, library, timeline });
+    const preview = createPreview(document.getElementById('preview'), { store, library });
+    const player = preview.player;
+    player.subscribe(({ playing }) => { timeline.follow = playing; });
+    Object.assign(window, { store, library, timeline, player });
 
     const tray = document.getElementById('tray');
     const msg = document.getElementById('msg');

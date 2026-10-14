@@ -1,0 +1,19 @@
+/* Vista previa. Usa los tokens de ../ui/tokens.css. */
+.pv { display: flex; flex-direction: column; min-height: 0; background: var(--color-background); color: var(--color-foreground); font: 500 14px/1.3 var(--font-sans); }
+.pv__stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: var(--space-3) var(--space-4); container-type: size; }
+/* El lienzo mantiene la proporción del proyecto y es lo mayor posible dentro del área. */
+.pv__canvas {
+  display: block;
+  width: min(100cqw, calc(100cqh * var(--pv-ratio, 0.5625)));
+  aspect-ratio: var(--pv-aspect, 9 / 16);
+  background: #000;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+.pv__bar { display: flex; align-items: center; gap: var(--touch-gap); padding: var(--space-2) var(--space-4) var(--space-3); }
+.pv__btn { flex: none; display: inline-grid; place-items: center; width: var(--touch-target); height: var(--touch-target); padding: 0; border: 0; border-radius: var(--radius-md); background: var(--color-card); color: var(--color-card-foreground); cursor: pointer; transition: background-color var(--motion-fast) var(--ease-out); }
+.pv__btn:hover { background: color-mix(in oklab, var(--color-card) 80%, white); }
+.pv__btn--play { width: 56px; border-radius: 999px; background: var(--color-primary); color: var(--color-on-primary); }
+.pv__btn--play:hover { background: color-mix(in oklab, var(--color-primary) 85%, white); }
+.pv__btn--play svg { fill: currentColor; }
+.pv__time { margin-left: var(--space-2); font-variant-numeric: tabular-nums; color: var(--color-muted-foreground); }
