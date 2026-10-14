@@ -38,3 +38,12 @@ export function firstFreeStart(project, trackId, duration, from = 0) {
   }
   return snap(cursor);
 }
+
+const VISUAL_KINDS = ['video', 'image'];
+
+/** Clip visual que termina justo donde empieza `clip`, en la misma pista. Base de las transiciones. */
+export function previousAdjacent(project, clip) {
+  if (!VISUAL_KINDS.includes(clip.kind)) return null;
+  const prev = trackClips(project, clip.trackId).find((c) => c.id !== clip.id && Math.abs(clipEnd(c) - clip.start) < 0.002);
+  return prev && VISUAL_KINDS.includes(prev.kind) ? prev : null;
+}

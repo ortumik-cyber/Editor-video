@@ -39,7 +39,7 @@ export function wrapLines(content, maxWidth, measure) {
 
 const FONT_FALLBACK = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
-function drawText(ctx, clip, canvasW, canvasH, alpha) {
+export function drawText(ctx, clip, canvasW, canvasH, alpha) {
   const text = clip.text;
   const { transform } = clip;
   ctx.font = `${text.weight} ${text.size}px "${text.font}", ${FONT_FALLBACK}`;
@@ -74,27 +74,46 @@ function drawText(ctx, clip, canvasW, canvasH, alpha) {
   ctx.restore();
 }
 
+/** Zona del origen que se muestra: todo, o el recorte del clip (fracciones 0-1). */
+export function cropRect(srcW, srcH, crop) {
+  const c = crop ?? { x: 0, y: 0, w: 1, h: 1 };
+  return { sx: c.x * srcW, sy: c.y * srcH, sw: c.w * srcW, sh: c.h * srcH };
+}
+
+function drawLayer(ctx, layer, width, height, getSource, opacityScale = 1) {
+  const { clip } = layer;
+  const opacity = layer.opacity * opacityScale;
+  if (opacity <= 0) return;
+  if (clip.kind === 'text') { drawText(ctx, clip, width, height, opacity); return; }
+  const source = getSource(clip);
+  if (!source) return;
+  const { sx, sy, sw, sh } = cropRect(source.width, source.height, clip.crop);
+  const g = layerGeometry({ srcW: sw, srcH: sh, transform: clip.transform, fit: clip.fit }, width, height);
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.translate(g.cx, g.cy);
+  ctx.rotate(g.rotation);
+  ctx.scale(clip.flip?.h ? -1 : 1, clip.flip?.v ? -1 : 1);
+  ctx.drawImage(source.image, sx, sy, sw, sh, -g.w / 2, -g.h / 2, g.w, g.h);
+  ctx.restore();
+}
+
 /**
- * Dibuja las capas (ya ordenadas de abajo arriba) sobre el fondo.
+ * Compositor 2D (respaldo sin WebGL): capas, recorte y volteo. No aplica efectos de color y
+ * resuelve toda transición como un disolver.
  * `size` es el tamaño lógico del proyecto; `scale` lo reduce para la vista previa.
  */
-export function composeFrame(ctx, { width, height, background }, layers, getSource, { scale = 1 } = {}) {
+export function composeFrame(ctx, { width, height, background }, plan, getSource, { scale = 1 } = {}) {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.globalAlpha = 1;
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
-  for (const layer of layers) {
-    const { clip, opacity } = layer;
-    if (opacity <= 0) continue;
-    if (clip.kind === 'text') { drawText(ctx, clip, width, height, opacity); continue; }
-    const source = getSource(clip);
-    if (!source) continue;
-    const g = layerGeometry({ srcW: source.width, srcH: source.height, transform: clip.transform, fit: clip.fit }, width, height);
-    ctx.save();
-    ctx.globalAlpha = opacity;
-    ctx.translate(g.cx, g.cy);
-    ctx.rotate(g.rotation);
-    ctx.drawImage(source.image, -g.w / 2, -g.h / 2, g.w, g.h);
-    ctx.restore();
+  for (const item of plan) {
+    if (item.kind === 'transition') {
+      drawLayer(ctx, item.outgoing, width, height, getSource, 1 - item.progress);
+      drawLayer(ctx, item.incoming, width, height, getSource, item.progress);
+    } else {
+      drawLayer(ctx, item, width, height, getSource);
+    }
   }
 }

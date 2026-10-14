@@ -55,7 +55,7 @@ test('clip/split reparte duración, punto de entrada, fundidos y efectos', () =>
   const { store, video, clip } = setup();
   const { c } = addVideo(store, video.id, clip.id, 2, 6, 1);
   store.dispatch({ type: 'clip/update', clipId: c.id, patch: { fadeIn: 1, fadeOut: 1 } });
-  store.dispatch({ type: 'effect/add', clipId: c.id, effect: { type: 'blur', params: { radius: 4 } } });
+  store.dispatch({ type: 'effect/add', clipId: c.id, effect: { type: 'blur', params: { value: 4 } } });
   assert.ok(store.dispatch({ type: 'clip/split', clipId: c.id, at: 5, newId: 'right' }).ok);
   const { clips } = store.getProject();
   assert.equal(clips[c.id].duration, 3);
@@ -126,7 +126,7 @@ test('efectos: añadir, actualizar, reordenar, quitar', () => {
   const { store, video, clip } = setup();
   const { c } = addVideo(store, video.id, clip.id, 0, 4);
   store.dispatch({ type: 'effect/add', clipId: c.id, effect: { id: 'f1', type: 'brightness', params: { value: 0.2 } } });
-  store.dispatch({ type: 'effect/add', clipId: c.id, effect: { id: 'f2', type: 'blur', params: { radius: 3 } } });
+  store.dispatch({ type: 'effect/add', clipId: c.id, effect: { id: 'f2', type: 'blur', params: { value: 3 } } });
   store.dispatch({ type: 'effect/update', clipId: c.id, effectId: 'f1', params: { value: 0.5 } });
   store.dispatch({ type: 'effect/reorder', clipId: c.id, from: 0, to: 1 });
   let fx = store.getProject().clips[c.id].effects;

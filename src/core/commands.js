@@ -3,7 +3,8 @@ import {
   ASPECTS, CLIP_KINDS_BY_TRACK, EPS, FIT_MODES, FPS_OPTIONS, MEDIA_CLIP_KINDS, MIN_CLIP_DURATION,
   TRACK_KINDS, createTrack, snap,
 } from './project.js';
-import { clipEnd, firstFreeStart, getClip, getTrack } from './selectors.js';
+import { EFFECTS, EFFECT_TYPES, TRANSITION_IDS, TRANSITION_RANGE, clampEffectValue, presetEffects } from './effects.js';
+import { clipEnd, firstFreeStart, getClip, getTrack, previousAdjacent } from './selectors.js';
 
 export class CommandError extends Error {
   constructor(code, message) {
@@ -70,6 +71,12 @@ function assertClipShape(p, clip) {
 }
 
 const cloneEffects = (effects) => effects.map((e) => ({ ...e, id: newId('fx'), params: { ...e.params } }));
+const makeEffect = (type, value) => ({ id: newId('fx'), type, enabled: true, params: { value: clampEffectValue(type, value) } });
+
+function validCrop(crop) {
+  const ok = ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(crop?.[k]));
+  return ok && crop.w >= 0.05 && crop.h >= 0.05 && crop.x >= 0 && crop.y >= 0 && crop.x + crop.w <= 1 + 1e-9 && crop.y + crop.h <= 1 + 1e-9;
+}
 
 // ---------- manejadores ----------
 
@@ -254,7 +261,21 @@ const handlers = {
     if ('fadeOut' in patch) next.fadeOut = Math.max(0, snap(patch.fadeOut));
     if (next.fadeIn + next.fadeOut > next.duration + EPS) fail('bounds', 'Los fundidos superan la duración del clip');
     if ('transform' in patch) next.transform = { ...clip.transform, ...patch.transform };
-    if ('transition' in patch) next.transition = patch.transition;
+    if ('crop' in patch) {
+      if (patch.crop !== null && !validCrop(patch.crop)) fail('invalid', 'Recorte fuera de rango');
+      if (patch.crop !== null && !['video', 'image'].includes(clip.kind)) fail('kind', 'Solo vídeo e imagen se recortan');
+      next.crop = patch.crop === null ? null : { x: patch.crop.x, y: patch.crop.y, w: patch.crop.w, h: patch.crop.h };
+    }
+    if ('flip' in patch) next.flip = { h: Boolean(patch.flip.h), v: Boolean(patch.flip.v) };
+    if ('transition' in patch) {
+      const tr = patch.transition;
+      if (tr !== null) {
+        if (!TRANSITION_IDS.includes(tr.type)) fail('invalid', `Transición desconocida: ${tr.type}`);
+        if (!(tr.duration >= TRANSITION_RANGE.min && tr.duration <= TRANSITION_RANGE.max)) fail('invalid', `La duración va de ${TRANSITION_RANGE.min} a ${TRANSITION_RANGE.max} s`);
+        if (!previousAdjacent(p, clip)) fail('no_neighbor', 'La transición necesita un clip justo antes, en la misma pista');
+      }
+      next.transition = tr === null ? null : { type: tr.type, duration: snap(tr.duration) };
+    }
     if ('text' in patch) {
       if (clip.kind !== 'text') fail('kind', 'Solo los clips de texto tienen texto');
       next.text = { ...clip.text, ...patch.text };
@@ -265,10 +286,32 @@ const handlers = {
 
   'effect/add': (p, { clipId, effect }) => {
     const clip = needClip(p, clipId);
-    if (!effect?.type) fail('invalid', 'Efecto sin tipo');
-    const fx = { id: effect.id ?? newId('fx'), type: effect.type, enabled: true, params: { ...effect.params } };
+    if (!EFFECTS[effect?.type]) fail('invalid', `Efecto desconocido: ${effect?.type}`);
+    const fx = { ...makeEffect(effect.type, Number(effect.params?.value ?? EFFECTS[effect.type].default)), ...(effect.id ? { id: effect.id } : {}) };
     return putClip(p, { ...clip, effects: [...clip.effects, fx] });
   },
+
+  /** Fija el valor de un efecto: lo crea, lo actualiza o lo quita si vuelve al neutro. */
+  'effect/set': (p, { clipId, effectType: type, value }) => {
+    const clip = needClip(p, clipId);
+    if (!EFFECTS[type]) fail('invalid', `Efecto desconocido: ${type}`);
+    if (!Number.isFinite(value)) fail('invalid', 'Valor no numérico');
+    const v = clampEffectValue(type, value);
+    const rest = clip.effects.filter((e) => e.type !== type);
+    if (Math.abs(v - EFFECTS[type].default) < 1e-9) return putClip(p, { ...clip, effects: rest });
+    const existing = clip.effects.find((e) => e.type === type);
+    const fx = existing ? { ...existing, enabled: true, params: { value: v } } : makeEffect(type, v);
+    return putClip(p, { ...clip, effects: existing ? clip.effects.map((e) => (e === existing ? fx : e)) : [...rest, fx] });
+  },
+
+  'effect/preset': (p, { clipId, presetId, intensity = 1 }) => {
+    const clip = needClip(p, clipId);
+    const list = presetEffects(presetId, Math.min(1, Math.max(0, intensity)));
+    if (!list) fail('invalid', `Filtro desconocido: ${presetId}`);
+    return putClip(p, { ...clip, effects: list.map(({ type, value }) => makeEffect(type, value)) });
+  },
+
+  'effect/clear': (p, { clipId }) => putClip(p, { ...needClip(p, clipId), effects: [] }),
 
   'effect/update': (p, { clipId, effectId, params, enabled }) => {
     const clip = needClip(p, clipId);
@@ -276,7 +319,7 @@ const handlers = {
     const effects = clip.effects.map((e) => (e.id !== effectId ? e : {
       ...e,
       enabled: enabled ?? e.enabled,
-      params: params ? { ...e.params, ...params } : e.params,
+      params: params?.value === undefined ? e.params : { value: clampEffectValue(e.type, Number(params.value)) },
     }));
     return putClip(p, { ...clip, effects });
   },

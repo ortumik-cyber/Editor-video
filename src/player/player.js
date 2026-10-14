@@ -1,7 +1,8 @@
 import { projectDuration } from '../core/selectors.js';
 import { createAudioGraph } from './audio.js';
 import { composeFrame } from './compose.js';
-import { mediaPlan, upcomingMedia, visualPlan } from './plan.js';
+import { flattenLayers, mediaPlan, upcomingMedia, visualPlan } from './plan.js';
+import { createGlRenderer } from '../render/gl.js';
 import { createMediaPool } from './pool.js';
 
 const LOOKAHEAD = 1;
@@ -12,12 +13,16 @@ const DRIFT_MAX = 0.25;
  * se corrigen cuando se desvían más de 250 ms. Pausado, cada cambio dibuja un fotograma fijo
  * esperando a que los vídeos lleguen a su instante (la última petición gana al arrastrar el cursor).
  */
-export function createPlayer({ store, library, canvas, doc = canvas.ownerDocument, maxPreviewSide = 960 }) {
+export function createPlayer({ store, library, canvas, doc = canvas.ownerDocument, maxPreviewSide = 960, useWebGl = true }) {
   const audio = createAudioGraph();
   const pool = createMediaPool({ library: { ...library, getAsset: (id) => store.getProject().assets[id] }, audio, doc });
   const images = new Map();
   const listeners = new Set();
   const ctx = canvas.getContext('2d', { alpha: false });
+  let renderer = null;
+  if (useWebGl) {
+    try { renderer = createGlRenderer({ doc }); } catch { renderer = null; }
+  }
   const stats = { frames: 0, stills: 0 };
   let playing = false;
   let raf = 0;
@@ -49,22 +54,28 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     return pool.sourceFor(clip);
   }
 
-  function draw(layers) {
+  function draw(plan) {
     const { settings } = store.getProject();
     const scale = Math.min(1, maxPreviewSide / Math.max(settings.width, settings.height));
     const w = Math.round(settings.width * scale);
     const h = Math.round(settings.height * scale);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-    composeFrame(ctx, settings, layers, sourceFor, { scale: w / settings.width });
+    if (renderer && !renderer.isLost()) {
+      const out = renderer.render(plan, settings, sourceFor, { scale: w / settings.width });
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(out, 0, 0);
+    } else {
+      composeFrame(ctx, settings, plan, sourceFor, { scale: w / settings.width });
+    }
   }
 
   async function renderStill() {
     const mine = ++token;
     const project = store.getProject();
     const t = store.getState().playhead;
-    const layers = visualPlan(project, t);
+    const plan = visualPlan(project, t);
     const keep = new Set();
-    await Promise.all(layers.map(async ({ clip, srcTime }) => {
+    await Promise.all(flattenLayers(plan).map(async ({ clip, srcTime }) => {
       if (clip.kind === 'image') return loadImage(clip.assetId);
       if (clip.kind !== 'video') return undefined;
       keep.add(clip.id);
@@ -73,7 +84,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
       return entry.ready ? pool.seekTo(entry, srcTime) : undefined;
     }));
     if (mine !== token || playing) return;
-    draw(layers);
+    draw(plan);
     pool.trim(keep);
     stats.stills++;
   }
@@ -117,9 +128,9 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     const t = clock.time + (wall - clock.wall) / 1000;
     if (t >= end) { setHead(end); pause(); return; }
     sync(project, t);
-    const layers = visualPlan(project, t);
-    for (const { clip } of layers) if (clip.kind === 'image') loadImage(clip.assetId);
-    draw(layers);
+    const plan = visualPlan(project, t);
+    for (const { clip } of flattenLayers(plan)) if (clip.kind === 'image') loadImage(clip.assetId);
+    draw(plan);
     setHead(t);
     stats.frames++;
     raf = requestAnimationFrame(frame);
@@ -169,6 +180,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     seek: (t) => store.setPlayhead(t),
     getLevel: () => audio.level(),
     audioState: () => audio.state,
+    rendererKind: () => (renderer && !renderer.isLost() ? 'webgl' : '2d'),
     stats,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /** Estado interno para pruebas y depuración. */
@@ -178,6 +190,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
       pause();
       cancelAnimationFrame(raf);
       pool.disposeAll();
+      renderer?.dispose();
       for (const { bitmap } of images.values()) bitmap?.close();
       images.clear();
     },
