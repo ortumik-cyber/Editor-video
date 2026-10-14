@@ -402,3 +402,115 @@ test('revealLines: reparte las letras por líneas y conserva la estructura', () 
   assert.deepEqual(revealLines(['hola', 'mundo'], 0.7), ['hola', 'mu']);
   assert.deepEqual(revealLines([''], 0.5), ['']);
 });
+
+// ---------- manipulación directa ----------
+
+import { dragHandle, dragMove, dragPinch, frameCorners, normalizeDegrees, pickTopClip, pointInFrame, selectionFrame, snapRotation } from '../src/player/manipulate.js';
+
+test('transformación: valores fuera de rango o no numéricos se rechazan', () => {
+  const { store, video, movie, add } = setup();
+  const c = add(video.id, 'video', movie.id, 0, 3);
+  const up = (transform) => store.dispatch({ type: 'clip/update', clipId: c.id, patch: { transform } });
+  assert.ok(up({ scale: 2, x: 0.3, y: -0.4, rotation: 400, opacity: 0.5 }).ok);
+  for (const bad of [{ scale: NaN }, { scale: 0 }, { scale: 99 }, { x: Infinity }, { y: 9 }, { opacity: 1.5 }, { opacity: -0.1 }, { rotation: NaN }, { rotation: 'a' }]) {
+    assert.equal(up(bad).ok, false, JSON.stringify(bad));
+  }
+  assert.equal(store.getProject().clips[c.id].transform.scale, 2, 'un parche inválido no cambia nada');
+});
+
+test('selectionFrame: vídeo contain, recorte, texto y escala', () => {
+  const { store, video, text, movie, add } = setup();
+  const c = add(video.id, 'video', movie.id, 0, 3);
+  let f = selectionFrame(store.getProject(), store.getProject().clips[c.id]);
+  assert.deepEqual([f.cx, f.cy, f.w, f.h], [540, 960, 1080, 607.5]);
+  store.dispatch({ type: 'clip/update', clipId: c.id, patch: { transform: { scale: 0.5, x: 0.25, y: -0.1, rotation: 90 } } });
+  f = selectionFrame(store.getProject(), store.getProject().clips[c.id]);
+  assert.deepEqual([f.cx, f.cy, f.w, f.h], [810, 768, 540, 303.75]);
+  assert.ok(Math.abs(f.rotation - Math.PI / 2) < 1e-12);
+  store.dispatch({ type: 'clip/update', clipId: c.id, patch: { crop: { x: 0, y: 0, w: 0.5, h: 1 }, transform: { scale: 1, x: 0, y: 0, rotation: 0 } } });
+  f = selectionFrame(store.getProject(), store.getProject().clips[c.id]);
+  assert.ok(Math.abs(f.w / f.h - 800 / 900) < 1e-9, 'el recorte cambia la proporción del marco');
+  const t = createClip({ trackId: text.id, kind: 'text', start: 0 });
+  store.dispatch({ type: 'clip/add', clip: t });
+  f = selectionFrame(store.getProject(), store.getProject().clips[t.id], { textSize: () => ({ w: 400, h: 100 }) });
+  assert.deepEqual([f.w, f.h], [400, 100]);
+  assert.equal(selectionFrame(store.getProject(), { ...store.getProject().clips[c.id], assetId: 'x' }), null);
+});
+
+test('frameCorners y pointInFrame con giro', () => {
+  const frame = { cx: 100, cy: 100, w: 80, h: 40, rotation: 0 };
+  assert.deepEqual(frameCorners(frame), [{ x: 60, y: 80 }, { x: 140, y: 80 }, { x: 140, y: 120 }, { x: 60, y: 120 }]);
+  const turned = frameCorners({ ...frame, rotation: Math.PI / 2 });
+  assert.ok(Math.abs(turned[0].x - 120) < 1e-9 && Math.abs(turned[0].y - 60) < 1e-9);
+  assert.equal(pointInFrame(frame, { x: 139, y: 119 }), true);
+  assert.equal(pointInFrame(frame, { x: 141, y: 100 }), false);
+  assert.equal(pointInFrame(frame, { x: 141, y: 100 }, 2), true, 'el margen agranda el marco');
+  const vertical = { ...frame, rotation: Math.PI / 2 };
+  assert.equal(pointInFrame(vertical, { x: 100, y: 139 }), true, 'girado 90° el marco es alto');
+  assert.equal(pointInFrame(vertical, { x: 139, y: 100 }), false);
+});
+
+test('pickTopClip: el de arriba gana, el de abajo se alcanza fuera del de arriba', () => {
+  const { store, video, movie, add } = setup();
+  const photo = createAsset({ kind: 'image', name: 'p', width: 100, height: 100 });
+  store.dispatch({ type: 'asset/add', asset: photo });
+  const base = add(video.id, 'video', movie.id, 0, 5);
+  store.dispatch({ type: 'track/add', kind: 'video', index: 1 });
+  const upper = store.getProject().tracks[1];
+  const sticker = createClip({ trackId: upper.id, kind: 'image', assetId: photo.id, start: 0, duration: 3 });
+  store.dispatch({ type: 'clip/add', clip: sticker });
+  store.dispatch({ type: 'clip/update', clipId: sticker.id, patch: { transform: { scale: 0.2 } } });
+  const p = store.getProject();
+  assert.equal(pickTopClip(p, 1, { x: 540, y: 960 }), sticker.id);
+  assert.equal(pickTopClip(p, 1, { x: 100, y: 960 }), base.id);
+  assert.equal(pickTopClip(p, 1, { x: 100, y: 100 }), null, 'fuera de todo: nada');
+  assert.equal(pickTopClip(p, 4, { x: 540, y: 960 }), base.id, 'el sticker ya terminó');
+});
+
+test('dragMove: sigue al puntero y se pega al centro', () => {
+  const size = { width: 1000, height: 2000 };
+  const r = dragMove({ x: 0.1, y: 0.1 }, { x: 0, y: 0 }, { x: 100, y: 200 }, size);
+  assert.ok(Math.abs(r.x - 0.2) < 1e-12 && Math.abs(r.y - 0.2) < 1e-12);
+  assert.deepEqual([r.snapX, r.snapY], [false, false]);
+  const s = dragMove({ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 4, y: 150 }, size, { snapDistance: 8 });
+  assert.deepEqual([s.x, s.snapX, s.snapY], [0, true, false]);
+  assert.ok(Math.abs(s.y - 0.075) < 1e-12);
+});
+
+test('dragHandle: escala por distancia, gira por ángulo y se pega a 90°', () => {
+  const t0 = { scale: 1, rotation: 0 };
+  const center = { x: 0, y: 0 };
+  assert.equal(dragHandle(center, t0, { x: 100, y: 0 }, { x: 200, y: 0 }).scale, 2);
+  assert.equal(dragHandle(center, t0, { x: 100, y: 0 }, { x: 50, y: 0 }).scale, 0.5);
+  assert.equal(dragHandle(center, t0, { x: 100, y: 0 }, { x: 1, y: 0 }).scale, 0.05, 'mínimo');
+  assert.equal(dragHandle(center, t0, { x: 1, y: 0 }, { x: 9999, y: 0 }).scale, 8, 'máximo');
+  const quarter = dragHandle(center, t0, { x: 100, y: 0 }, { x: 0, y: 100 });
+  assert.equal(quarter.rotation, 90);
+  const near = dragHandle(center, t0, { x: 100, y: 0 }, { x: 100, y: 3 });
+  assert.equal(near.rotation, 0, 'imán a 0° dentro de 4°');
+  const free = dragHandle(center, t0, { x: 100, y: 0 }, { x: 100, y: 30 });
+  assert.ok(Math.abs(free.rotation - 16.699) < 0.01);
+  assert.equal(dragHandle(center, t0, { x: 100, y: 0 }, { x: 100, y: 30 }, { step: 15 }).rotation, 15, 'con Mayús, pasos de 15°');
+});
+
+test('snapRotation y normalizeDegrees', () => {
+  assert.equal(normalizeDegrees(190), -170);
+  assert.equal(normalizeDegrees(-190), 170);
+  assert.equal(normalizeDegrees(540), -180);
+  assert.equal(snapRotation(87), 90);
+  assert.equal(snapRotation(-92), -90);
+  assert.equal(snapRotation(180), -180);
+  assert.equal(snapRotation(50), 50);
+  assert.equal(snapRotation(44, 15), 45);
+});
+
+test('dragPinch: escala, gira y mueve con dos dedos', () => {
+  const t0 = { scale: 1, rotation: 0, x: 0, y: 0 };
+  const size = { width: 1000, height: 1000 };
+  const r = dragPinch(t0, [{ x: 400, y: 500 }, { x: 600, y: 500 }], [{ x: 300, y: 500 }, { x: 700, y: 500 }], size);
+  assert.deepEqual([r.scale, r.rotation, r.x, r.y], [2, 0, 0, 0]);
+  const turned = dragPinch(t0, [{ x: 400, y: 500 }, { x: 600, y: 500 }], [{ x: 500, y: 400 }, { x: 500, y: 600 }], size);
+  assert.ok(Math.abs(turned.rotation - 90) < 1e-9 && Math.abs(turned.scale - 1) < 1e-9);
+  const moved = dragPinch(t0, [{ x: 400, y: 500 }, { x: 600, y: 500 }], [{ x: 500, y: 600 }, { x: 700, y: 600 }], size);
+  assert.ok(Math.abs(moved.x - 0.1) < 1e-12 && Math.abs(moved.y - 0.1) < 1e-12);
+});

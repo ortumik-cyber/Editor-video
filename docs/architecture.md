@@ -11,7 +11,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 | 3 | Línea de tiempo: pistas, clips, arrastrar, recortar, dividir, zoom, cursor | hecho |
 | 4 | Reproductor: composición en canvas, audio sincronizado, controles | hecho |
 | 5 | Efectos, filtros, transiciones, recorte, volteo y giro | hecho |
-| 6 | Texto y stickers | pendiente |
+| 6 | Texto, tipografías, animaciones, stickers, emoji y manipulación directa | hecho |
 | 7 | Audio | pendiente |
 | 8 | Exportación MP4 (WebCodecs + muxer) | pendiente |
 | 9 | Interfaz y PWA | pendiente |
@@ -77,6 +77,18 @@ La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con
 - Fórmulas de color (rgb 0-1): saturación `mix(luma, rgb, 1 + s)`; temperatura `rgb * (1 + 0.2t, 1, 1 - 0.2t)`; brillo `rgb + 0.5b`; contraste `(rgb - 0.5)(1 + c) + 0.5`. El tono usa la matriz de `hue-rotate` de CSS y la sepia la de CSS `sepia`.
 - Transiciones: van en el clip que entra. Están centradas en el corte con el clip anterior, que debe estar pegado y en la misma pista. La duración se limita a la de ambos clips. Antes del corte se usan fotogramas previos al punto de entrada del clip entrante, y después los posteriores al final del saliente. Si el archivo no tiene más material, se congela el primer o el último fotograma. El audio no se mezcla durante la transición.
 - `effects/panel.js`: panel del clip seleccionado. Se construye una vez por clip y luego solo sincroniza valores. Un arrastre de deslizador es un solo paso de historial. Doble toque en el valor restablece.
+
+## Texto, stickers y manipulación directa (`src/text`, `src/player/manipulate*.js`)
+
+- `core/text.js` (datos puros): 10 tipografías con sus pesos, 9 animaciones y la validación del texto (`textError`). `clip/update` rechaza cualquier valor fuera de rango y no cambia nada.
+- `assets/fonts`: subconjunto latino en WOFF2 (ñ, tildes, ¿ y ¡ incluidos) con sus licencias. `text/fonts.js` las carga con `FontFace`. El reproductor espera a las fuentes en los fotogramas fijos y las texturas de texto de WebGL llevan en su clave la versión de fuentes cargadas, así que no hay un instante con la fuente de repuesto.
+- Si una fuente no tiene negrita, el peso se resuelve al más cercano (`resolveWeight`): no hay negrita falsa. El modelo guarda el peso resuelto, no la intención: pasar por una fuente sin negrita la quita.
+- `text/animation.js`: `textAnimation(clip, t)` da opacidad, desplazamiento, escala y letras visibles. Los movimientos van por matriz en WebGL; solo la máquina de escribir regenera la textura. En la salida el movimiento se invierte.
+- Un texto largo se parte en líneas; una palabra que no cabe se parte por caracteres.
+- `text/stickers.js`: 12 stickers SVG propios, 32 emoji y 6 estilos de texto. Un sticker se rasteriza a PNG y se importa una vez como medio normal (hereda transformación, efectos y fundidos).
+- Colocación (`timeline/actions.js`): un texto o superposición nuevo va al cursor, a la primera pista libre en ese tramo, y se crea una capa si no la hay. Las superposiciones nunca van a la pista base.
+- Manipulación directa (`player/manipulate.js` puro + `manipulator.js` DOM): clic para seleccionar el elemento de más arriba bajo el puntero, arrastrar para mover (con imán al centro y guías), tirador de esquina para escalar y girar (imán a múltiplos de 90°, Mayús = pasos de 15°), pellizco con dos dedos. Cada gesto envía el comando en vivo con clave de fusión: un solo paso de historial. Doble clic en un texto enfoca su caja de edición. El equivalente accesible por teclado son los deslizadores del panel.
+- Transformación válida: `x`, `y` en [-5, 5], `scale` en [0,01, 20], `opacity` en [0, 1], `rotation` finito.
 
 ## Reglas del modelo
 

@@ -74,6 +74,16 @@ function assertClipShape(p, clip) {
 const cloneEffects = (effects) => effects.map((e) => ({ ...e, id: newId('fx'), params: { ...e.params } }));
 const makeEffect = (type, value) => ({ id: newId('fx'), type, enabled: true, params: { value: clampEffectValue(type, value) } });
 
+const TRANSFORM_RANGES = { x: [-5, 5], y: [-5, 5], scale: [0.01, 20], opacity: [0, 1] };
+
+/** Mensaje del primer valor de transformación fuera de rango, o null. */
+function transformError(t) {
+  for (const [key, [lo, hi]] of Object.entries(TRANSFORM_RANGES)) {
+    if (!Number.isFinite(t[key]) || t[key] < lo || t[key] > hi) return `${key} debe estar entre ${lo} y ${hi}`;
+  }
+  return Number.isFinite(t.rotation) ? null : 'rotation debe ser un número';
+}
+
 function validCrop(crop) {
   const ok = ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(crop?.[k]));
   return ok && crop.w >= 0.05 && crop.h >= 0.05 && crop.x >= 0 && crop.y >= 0 && crop.x + crop.w <= 1 + 1e-9 && crop.y + crop.h <= 1 + 1e-9;
@@ -261,7 +271,12 @@ const handlers = {
     if ('fadeIn' in patch) next.fadeIn = Math.max(0, snap(patch.fadeIn));
     if ('fadeOut' in patch) next.fadeOut = Math.max(0, snap(patch.fadeOut));
     if (next.fadeIn + next.fadeOut > next.duration + EPS) fail('bounds', 'Los fundidos superan la duración del clip');
-    if ('transform' in patch) next.transform = { ...clip.transform, ...patch.transform };
+    if ('transform' in patch) {
+      const merged = { ...clip.transform, ...patch.transform };
+      const problem = transformError(merged);
+      if (problem) fail('invalid', problem);
+      next.transform = merged;
+    }
     if ('crop' in patch) {
       if (patch.crop !== null && !validCrop(patch.crop)) fail('invalid', 'Recorte fuera de rango');
       if (patch.crop !== null && !['video', 'image'].includes(clip.kind)) fail('kind', 'Solo vídeo e imagen se recortan');

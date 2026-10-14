@@ -1,14 +1,15 @@
 import { projectDuration } from '../core/selectors.js';
 import { formatClock } from '../library/kinds.js';
 import { icon } from '../ui/icons.js';
+import { createManipulator } from './manipulator.js';
 import { createPlayer } from './player.js';
 
 /** Vista previa: lienzo con la proporción del proyecto y los controles de reproducción. */
-export function createPreview(root, { store, library, doc = root.ownerDocument }) {
+export function createPreview(root, { store, library, doc = root.ownerDocument, onEditText, onMessage }) {
   const abort = new AbortController();
   root.classList.add('pv');
   root.innerHTML = `
-    <div class="pv__stage"><canvas class="pv__canvas" role="img" aria-label="Vista previa del vídeo"></canvas></div>
+    <div class="pv__stage"><div class="pv__wrap"><canvas class="pv__canvas" role="img" aria-label="Vista previa del vídeo"></canvas></div></div>
     <div class="pv__bar">
       <button type="button" class="pv__btn" data-pv="start" aria-label="Ir al inicio" title="Ir al inicio (Inicio)">${icon('start')}</button>
       <button type="button" class="pv__btn pv__btn--play" data-pv="play" aria-label="Reproducir" title="Reproducir (Espacio)">${icon('play')}</button>
@@ -18,6 +19,7 @@ export function createPreview(root, { store, library, doc = root.ownerDocument }
   const playButton = root.querySelector('[data-pv="play"]');
   const time = root.querySelector('.pv__time');
   const player = createPlayer({ store, library, canvas, doc });
+  const manipulator = createManipulator(root.querySelector('.pv__wrap'), { store, canvas, doc, onEditText, onMessage });
 
   function update() {
     const { settings } = store.getProject();
@@ -49,6 +51,7 @@ export function createPreview(root, { store, library, doc = root.ownerDocument }
   update();
   return {
     player,
-    destroy() { abort.abort(); unsubscribeStore(); unsubscribePlayer(); player.destroy(); root.replaceChildren(); root.classList.remove('pv'); },
+    manipulator,
+    destroy() { manipulator.destroy(); abort.abort(); unsubscribeStore(); unsubscribePlayer(); player.destroy(); root.replaceChildren(); root.classList.remove('pv'); },
   };
 }
