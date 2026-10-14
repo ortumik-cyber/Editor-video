@@ -44,9 +44,10 @@ export function createTrack({ kind, name } = {}) {
   return { id: newId('trk'), kind, name: name ?? kind, muted: false, locked: false, clipIds: [] };
 }
 
-export function createAsset({ kind, name, duration = 0, width = 0, height = 0, hasAudio = false, mime = '', size = 0, id }) {
+/** `peaks`: picos de onda 0-255 (audio y vídeo con sonido). `hasThumb`: hay miniatura en el repositorio. */
+export function createAsset({ kind, name, duration = 0, width = 0, height = 0, hasAudio = false, mime = '', size = 0, peaks = null, hasThumb = false, id }) {
   if (!['video', 'image', 'audio'].includes(kind)) throw new TypeError(`Tipo de medio inválido: ${kind}`);
-  return { id: id ?? newId('ast'), kind, name, duration: snap(duration), width, height, hasAudio, mime, size };
+  return { id: id ?? newId('ast'), kind, name, duration: snap(duration), width, height, hasAudio, mime, size, peaks, hasThumb };
 }
 
 const DEFAULT_DURATION = { image: 5, text: 3 };

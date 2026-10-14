@@ -7,7 +7,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 | # | Módulo | Estado |
 |---|--------|--------|
 | 1 | Núcleo: modelo, comandos, store, deshacer/rehacer, persistencia | hecho |
-| 2 | Biblioteca: importar medios, miniaturas, metadatos | pendiente |
+| 2 | Biblioteca: importar medios, miniaturas, metadatos, onda de audio | hecho |
 | 3 | Línea de tiempo | pendiente |
 | 4 | Motor de previsualización (Canvas/WebGL + WebAudio) | pendiente |
 | 5 | Efectos y transiciones | pendiente |
@@ -23,6 +23,17 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 - `store.js`: aplica comandos, guarda historial, expone selección y cursor. `dispatch` devuelve `{ ok, error }` y no lanza por errores de dominio.
 - `selectors.js`: lecturas derivadas (`projectDuration`, `clipsAt`, `firstFreeStart`).
 - `persist.js`: repositorio con backend inyectable (IndexedDB o memoria), autosave y `migrate`.
+
+## Biblioteca (`src/library`)
+
+- `library.js`: `importFiles(files, { onProgress })` valida, inspecciona, guarda el archivo y registra el medio. Devuelve `{ added, rejected }`. Un lote es un solo paso de historial. Importa en serie para no cargar varios archivos grandes a la vez.
+- `dom.js`: adaptadores de navegador (`createDomAdapters`). Leen duración y tamaño con elementos `<video>`/`<audio>`, `createImageBitmap` para imágenes, miniatura en WebP de 320 px y picos de onda con `OfflineAudioContext` a 8 kHz.
+- `kinds.js`, `waveform.js`: lógica pura (tipo por MIME o extensión, límites, picos).
+- Las miniaturas se guardan en el repositorio con la clave `<assetId>:thumb`. Los picos (0-255) viajan dentro del medio.
+- Quitar un medio no borra su archivo, para poder deshacer. `collectGarbage()` lo borra al abrir un proyecto.
+- Límites: sin decodificar audio por encima de 150 MB o 15 min. En ese caso un vídeo se da por «con audio» y no tiene onda.
+- Un `hasAudio: false` significa que el navegador no pudo decodificar audio del archivo (sin pista, o códec de audio no soportado).
+- Los códecs los decide el navegador. H.264/AAC va en Chrome, Edge y Safari. El Chromium de pruebas no los incluye.
 
 ## Reglas del modelo
 
@@ -40,3 +51,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 ## Tests
 
 `npm test` (Node 20 o superior, sin dependencias).
+
+`npm run test:browser` importa medios reales en Chromium con IndexedDB. Necesita `ffmpeg` y `playwright` global.
+
+`npm start` sirve la carpeta en http://localhost:5173.

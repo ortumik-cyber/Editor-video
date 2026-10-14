@@ -3,7 +3,8 @@ import { SCHEMA_VERSION } from './project.js';
 /**
  * Repositorio: proyectos (JSON) y medios (Blob) por separado.
  * El backend se inyecta: IndexedDB en el navegador, memoria en tests.
- * Interfaz del backend: put(store, key, value), get(store, key), delete(store, key), all(store).
+ * Interfaz del backend: put(store, key, value), get(store, key), delete(store, key), all(store), keys(store).
+ * Claves de medios: `<assetId>` para el archivo y `<assetId>:thumb` para la miniatura.
  */
 export function createRepo(backend) {
   return {
@@ -21,8 +22,19 @@ export function createRepo(backend) {
         .sort((a, b) => b.updatedAt - a.updatedAt);
     },
     async remove(project) {
-      for (const assetId of Object.keys(project.assets)) await backend.delete('media', assetId);
+      for (const assetId of Object.keys(project.assets)) {
+        await backend.delete('media', assetId);
+        await backend.delete('media', `${assetId}:thumb`);
+      }
       await backend.delete('projects', project.id);
+    },
+    /** Borra los medios cuya clave no cumple `keep(key)`. Devuelve cuántos borró. */
+    async pruneMedia(keep) {
+      let removed = 0;
+      for (const key of await backend.keys('media')) {
+        if (!keep(key)) { await backend.delete('media', key); removed++; }
+      }
+      return removed;
     },
     putMedia: (assetId, blob) => backend.put('media', assetId, blob),
     getMedia: (assetId) => backend.get('media', assetId),
@@ -65,6 +77,7 @@ export function createMemoryBackend() {
     async get(store, key) { return stores[store].get(key) ?? null; },
     async delete(store, key) { stores[store].delete(key); },
     async all(store) { return [...stores[store].values()]; },
+    async keys(store) { return [...stores[store].keys()]; },
   };
 }
 
@@ -93,5 +106,6 @@ export function createIndexedDbBackend(name = 'editor-video') {
     get: async (store, key) => (await run(store, 'readonly', (s) => s.get(key))) ?? null,
     delete: (store, key) => run(store, 'readwrite', (s) => s.delete(key)),
     all: (store) => run(store, 'readonly', (s) => s.getAll()),
+    keys: (store) => run(store, 'readonly', (s) => s.getAllKeys()),
   };
 }
