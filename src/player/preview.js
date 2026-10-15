@@ -12,6 +12,7 @@ export function createPreview(root, { store, library, doc = root.ownerDocument, 
   root.classList.add('pv');
   root.innerHTML = `
     <div class="pv__stage"><div class="pv__wrap"><canvas class="pv__canvas" role="img" aria-label="Vista previa del vídeo"></canvas></div></div>
+    <input class="pv__seek" type="range" min="0" max="1" step="0.01" value="0" aria-label="Posición en el vídeo">
     <div class="pv__bar">
       <button type="button" class="pv__btn" data-pv="start" aria-label="Ir al inicio" title="Ir al inicio (Inicio)">${icon('start')}</button>
       <button type="button" class="pv__btn pv__btn--play" data-pv="play" aria-label="Reproducir" title="Reproducir (Espacio)">${icon('play')}</button>
@@ -23,6 +24,7 @@ export function createPreview(root, { store, library, doc = root.ownerDocument, 
   const canvas = root.querySelector('canvas');
   const playButton = root.querySelector('[data-pv="play"]');
   const time = root.querySelector('.pv__time');
+  const seek = root.querySelector('.pv__seek');
   const player = createPlayer({ store, library, canvas, doc });
   const recorder = createVoiceRecorder({ store, library, player });
   const recordButton = root.querySelector('[data-pv="record"]');
@@ -34,7 +36,12 @@ export function createPreview(root, { store, library, doc = root.ownerDocument, 
     const { settings } = store.getProject();
     root.style.setProperty('--pv-aspect', `${settings.width} / ${settings.height}`);
     root.style.setProperty('--pv-ratio', String(settings.width / settings.height));
-    time.textContent = `${formatClock(store.getState().playhead)} / ${formatClock(projectDuration(store.getProject()))}`;
+    const total = projectDuration(store.getProject());
+    time.textContent = `${formatClock(store.getState().playhead)} / ${formatClock(total)}`;
+    seek.max = String(Math.max(total, 0.01));
+    seek.disabled = total <= 0;
+    if (document.activeElement !== seek || Number(seek.value) !== store.getState().playhead) seek.value = String(store.getState().playhead);
+    seek.setAttribute('aria-valuetext', `${formatClock(store.getState().playhead)} de ${formatClock(total)}`);
   }
 
   const unsubscribeStore = store.subscribe((_, meta) => { if (meta.type !== 'select') update(); });
@@ -82,6 +89,8 @@ export function createPreview(root, { store, library, doc = root.ownerDocument, 
       onMessage?.(error.message);
     }
   }
+
+  seek.addEventListener('input', () => store.setPlayhead(Number(seek.value)), { signal: abort.signal });
 
   root.addEventListener('click', (e) => {
     const button = e.target.closest('[data-pv]');

@@ -6,7 +6,7 @@
   "description": "Editor de vídeo e imagen en el navegador (PWA).",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test:browser": "node tests/browser/library.browser.mjs && node tests/browser/timeline.browser.mjs && node tests/browser/player.browser.mjs && node tests/browser/effects.browser.mjs && node tests/browser/inspector.browser.mjs && node tests/browser/text.browser.mjs && node tests/browser/textpanel.browser.mjs && node tests/browser/manipulate.browser.mjs && node tests/browser/audio.browser.mjs && node tests/browser/sfx.browser.mjs && node tests/browser/voice.browser.mjs && node tests/browser/export.browser.mjs && node tests/browser/exportpanel.browser.mjs",
+    "test:browser": "node tests/browser/library.browser.mjs && node tests/browser/timeline.browser.mjs && node tests/browser/player.browser.mjs && node tests/browser/effects.browser.mjs && node tests/browser/inspector.browser.mjs && node tests/browser/text.browser.mjs && node tests/browser/textpanel.browser.mjs && node tests/browser/manipulate.browser.mjs && node tests/browser/audio.browser.mjs && node tests/browser/sfx.browser.mjs && node tests/browser/voice.browser.mjs && node tests/browser/export.browser.mjs && node tests/browser/exportpanel.browser.mjs && node tests/browser/app.browser.mjs",
     "test": "node --test \"tests/**/*.test.js\""
   },
   "engines": { "node": ">=20" }

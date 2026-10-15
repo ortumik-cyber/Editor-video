@@ -35,3 +35,6 @@
 @keyframes pv-blink { to { visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .pv__rec::before { animation: none; } }
 .pv__btn--rec[aria-pressed="true"] { background: var(--color-destructive); color: var(--color-on-destructive); }
+
+.pv__seek { display: block; width: calc(100% - 2 * var(--space-4)); height: var(--touch-target); margin: 0 var(--space-4); accent-color: var(--color-primary); cursor: pointer; }
+.pv__seek:disabled { opacity: 0.4; cursor: default; }
