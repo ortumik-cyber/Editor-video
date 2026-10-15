@@ -12,7 +12,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 | 4 | Reproductor: composición en canvas, audio sincronizado, controles | hecho |
 | 5 | Efectos, filtros, transiciones, recorte, volteo y giro | hecho |
 | 6 | Texto, tipografías, animaciones, stickers, emoji y manipulación directa | hecho |
-| 7 | Audio | pendiente |
+| 7 | Audio: sonido, separar audio, efectos, locución, mezcla y medidor | hecho |
 | 8 | Exportación MP4 (WebCodecs + muxer) | pendiente |
 | 9 | Interfaz y PWA | pendiente |
 
@@ -89,6 +89,17 @@ La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con
 - Colocación (`timeline/actions.js`): un texto o superposición nuevo va al cursor, a la primera pista libre en ese tramo, y se crea una capa si no la hay. Las superposiciones nunca van a la pista base.
 - Manipulación directa (`player/manipulate.js` puro + `manipulator.js` DOM): clic para seleccionar el elemento de más arriba bajo el puntero, arrastrar para mover (con imán al centro y guías), tirador de esquina para escalar y girar (imán a múltiplos de 90°, Mayús = pasos de 15°), pellizco con dos dedos. Cada gesto envía el comando en vivo con clave de fusión: un solo paso de historial. Doble clic en un texto enfoca su caja de edición. El equivalente accesible por teclado son los deslizadores del panel.
 - Transformación válida: `x`, `y` en [-5, 5], `scale` en [0,01, 20], `opacity` en [0, 1], `rotation` finito.
+
+## Audio (`src/audio`, `src/player/audio.js`)
+
+- Cada elemento de vídeo o audio pasa por su ganancia en el grafo de Web Audio (permite volumen hasta 400 %). Una salida común lleva el medidor de nivel (`player.getLevel()`).
+- Ganancia de un clip: volumen x fundido x mezcla de transición x silencio de pista. Panel de sonido: volumen, silenciar, fundidos de entrada y salida, velocidad y, en un vídeo con audio, **Separar audio** (un solo comando: crea el clip de audio y silencia el vídeo).
+- **Silenciar pista** desde la barra de la línea de tiempo (botón o tecla M). La pista se atenúa.
+- **Transiciones:** el audio del clip saliente y el del entrante se mezclan con potencia constante (`cos` y `sen` a lo largo de toda la ventana), así que no hay bache de volumen en el corte. Con señales idénticas y en fase la suma sube hasta 1,41 veces: la potencia constante es para señales distintas.
+- `audio/sfx.js`: 9 efectos de sonido **sintetizados** (campanilla, pop, clic, aire, subida, bajada, moneda, error y latido). Originales, deterministas, mono a 44,1 kHz, con pico de 0,8 y sin chasquidos. Se codifican a WAV de 16 bits e importan como un medio normal.
+- `audio/recorder.js`: locución con `MediaRecorder`. Graba mientras el vídeo avanza desde el cursor y al parar importa la grabación y la coloca donde empezó, en una pista de audio libre (o nueva). Errores con mensaje claro: permiso denegado, sin micrófono, micrófono en uso, sin soporte, grabación demasiado corta. Con altavoces la grabación recoge también el sonido del proyecto: lo recomendable son auriculares.
+- Medidor de nivel de la barra de la vista previa: escala de -60 a 0 dB, sube al instante y baja poco a poco. Muestra el mezclador al reproducir y el micrófono al grabar.
+- Un medio más corto que 0,1 s (un chasquido de 50 ms) se puede colocar entero, pero no más corto.
 
 ## Reglas del modelo
 

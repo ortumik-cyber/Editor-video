@@ -66,3 +66,31 @@ test('encodeWav: cabecera RIFF correcta y datos recuperables', () => {
   const decoded = Array.from({ length: samples.length }, (_, i) => v.getInt16(44 + i * 2, true) / 32767);
   for (const [i, x] of [0, 0.5, -0.5, 1, -1, 1, -1].entries()) assert.ok(Math.abs(decoded[i] - x) < 2e-5, `muestra ${i}: ${decoded[i]} vs ${x}`);
 });
+
+import { levelToPercent, smoothLevel } from '../src/audio/level.js';
+import { extensionFor } from '../src/audio/recorder.js';
+
+test('levelToPercent: escala en decibelios de -60 a 0', () => {
+  assert.equal(levelToPercent(1), 100);
+  assert.equal(levelToPercent(0), 0);
+  assert.equal(levelToPercent(0.001), 0);
+  assert.ok(Math.abs(levelToPercent(0.1) - (40 / 60) * 100) < 1e-9);
+  assert.ok(Math.abs(levelToPercent(0.01) - (20 / 60) * 100) < 1e-9);
+  assert.equal(levelToPercent(5), 100, 'no pasa de 100');
+  assert.ok(levelToPercent(0.2) > levelToPercent(0.1));
+});
+
+test('smoothLevel: sube al instante y baja poco a poco', () => {
+  assert.equal(smoothLevel(10, 80), 80);
+  assert.equal(smoothLevel(80, 10), 72);
+  assert.equal(smoothLevel(80, 75), 75, 'no baja por debajo del valor real');
+  let v = 100;
+  for (let i = 0; i < 60; i++) v = smoothLevel(v, 0);
+  assert.ok(v < 0.2);
+});
+
+test('extensión del archivo según el formato grabado', () => {
+  assert.equal(extensionFor('audio/webm;codecs=opus'), 'webm');
+  assert.equal(extensionFor('audio/mp4'), 'm4a');
+  assert.equal(extensionFor('audio/ogg;codecs=opus'), 'ogg');
+});

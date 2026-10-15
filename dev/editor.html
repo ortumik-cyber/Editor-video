@@ -55,10 +55,11 @@
     const timeline = createTimeline(document.getElementById('timeline'), { store, library });
     const preview = createPreview(document.getElementById('preview'), { store, library, onEditText: () => document.getElementById('ins-t-content')?.focus(), onMessage: (m) => { document.getElementById('msg').textContent = m; } });
     const player = preview.player;
+    const recorder = preview.recorder;
     createInspector(document.getElementById('inspector'), { store });
     createAddPanel(document.getElementById('add-panel'), { store, library });
     player.subscribe(({ playing }) => { timeline.follow = playing; });
-    Object.assign(window, { store, library, timeline, player });
+    Object.assign(window, { store, library, timeline, player, recorder });
 
     const tray = document.getElementById('tray');
     const msg = document.getElementById('msg');

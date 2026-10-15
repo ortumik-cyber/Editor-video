@@ -27,8 +27,9 @@ export function makeMedia() {
 
 export async function launch(options = {}) {
   const server = await startServer(0);
-  const browser = await chromium.launch();
-  const context = await browser.newContext(options);
+  const browser = await chromium.launch({ args: options.args ?? [] });
+  const { args: _args, ...contextOptions } = options;
+  const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
