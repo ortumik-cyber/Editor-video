@@ -210,3 +210,18 @@ test('persistencia: guardar, listar, cargar, borrar y autosave', async () => {
   await repo.remove(store.getProject());
   assert.equal(await repo.load(store.getProject().id), null);
 });
+
+test('un medio más corto que el mínimo se puede colocar entero, pero no más corto', () => {
+  const store = createStore(createProject());
+  const audioTrack = store.getProject().tracks.find((t) => t.kind === 'audio');
+  const click = createAsset({ kind: 'audio', name: 'click.wav', duration: 0.05 });
+  store.dispatch({ type: 'asset/add', asset: click });
+  const whole = createClip({ trackId: audioTrack.id, kind: 'audio', assetId: click.id, start: 1, duration: 0.05 });
+  assert.ok(store.dispatch({ type: 'clip/add', clip: whole }).ok, 'el medio entero cabe');
+  const shorter = createClip({ trackId: audioTrack.id, kind: 'audio', assetId: click.id, start: 3, duration: 0.03 });
+  assert.equal(store.dispatch({ type: 'clip/add', clip: shorter }).error.code, 'bounds');
+  const long = createAsset({ kind: 'audio', name: 'largo.wav', duration: 5 });
+  store.dispatch({ type: 'asset/add', asset: long });
+  const tiny = createClip({ trackId: audioTrack.id, kind: 'audio', assetId: long.id, start: 5, duration: 0.05 });
+  assert.equal(store.dispatch({ type: 'clip/add', clip: tiny }).error.code, 'bounds', 'con un medio largo sigue valiendo el mínimo de 0,1 s');
+});

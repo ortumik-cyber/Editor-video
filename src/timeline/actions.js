@@ -64,6 +64,20 @@ export function addStyledText(store, style, content = 'Texto') {
 /** Un emoji es un texto grande y sin sombra. */
 export const addEmojiClip = (store, emoji) => addStyledText(store, { font: 'Inter', weight: 400, size: 260, shadow: false, animIn: 'pop', animInDuration: 0.4 }, emoji);
 
+/** Audio en el cursor, en la primera pista de audio libre en ese tramo (o una nueva). */
+export function addAudioClip(store, assetId, { at } = {}) {
+  const asset = store.getProject().assets[assetId];
+  if (!asset || asset.kind !== 'audio') return err('no_asset', 'Medio inexistente o sin audio');
+  const start = Math.max(0, at ?? store.getState().playhead);
+  const trackId = freeTrackFor(store, 'audio', start, start + asset.duration);
+  if (!trackId) return err('no_track', 'No se pudo crear una pista de audio');
+  const clip = createClip({ trackId, kind: 'audio', assetId, start, duration: asset.duration });
+  const added = store.dispatch({ type: 'clip/add', clip });
+  if (!added.ok) return added;
+  store.select([clip.id]);
+  return { ok: true, clipId: clip.id };
+}
+
 /** Imagen o vídeo como capa superpuesta: en el cursor, encima de la pista base, sin mover lo que ya hay. */
 export function addOverlayAsset(store, assetId, { at, scale = 0.35, duration = 3 } = {}) {
   const asset = store.getProject().assets[assetId];

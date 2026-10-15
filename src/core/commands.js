@@ -65,7 +65,9 @@ function assertClipShape(p, clip) {
   const track = needTrack(p, clip.trackId);
   if (!CLIP_KINDS_BY_TRACK[track.kind].includes(clip.kind)) fail('kind', `Un clip ${clip.kind} no cabe en una pista ${track.kind}`);
   if (clip.start < -EPS) fail('bounds', 'El inicio no puede ser negativo');
-  if (clip.duration < MIN_CLIP_DURATION - EPS) fail('bounds', `Duración mínima ${MIN_CLIP_DURATION}s`);
+  // Un medio más corto que el mínimo (un chasquido de 50 ms) solo puede usarse entero.
+  const shortest = MEDIA_CLIP_KINDS.includes(clip.kind) && p.assets[clip.assetId]?.duration > 0 ? Math.min(MIN_CLIP_DURATION, p.assets[clip.assetId].duration) : MIN_CLIP_DURATION;
+  if (clip.duration < shortest - EPS) fail('bounds', `Duración mínima ${shortest}s`);
   if (clip.kind !== 'text' && !p.assets[clip.assetId]) fail('no_asset', `Medio inexistente: ${clip.assetId}`);
   assertSourceBounds(p, clip);
   assertFree(p, clip.trackId, clip.start, clipEnd(clip), clip.id);
