@@ -75,35 +75,48 @@ export function visualPlan(project, t) {
 /** Las capas sueltas de un plan visual, incluidas las dos de cada transición. */
 export const flattenLayers = (plan) => plan.flatMap((item) => (item.kind === 'transition' ? [item.outgoing, item.incoming] : [item]));
 
-/** Clips de vídeo y audio activos en t, con su ganancia (volumen x fundido x silencio de pista). */
-export function mediaPlan(project, t) {
-  const items = [];
-  for (const track of project.tracks) {
-    for (const id of track.clipIds) {
-      const clip = project.clips[id];
-      if (!MEDIA.has(clip.kind) || !active(clip, t)) continue;
-      const asset = project.assets[clip.assetId];
-      const audible = clip.kind === 'audio' || asset?.hasAudio;
-      items.push({
-        clip,
-        srcTime: sourceTime(clip, t),
-        speed: clip.speed,
-        hasAudio: Boolean(audible),
-        gain: audible && !track.muted ? clip.volume * fadeFactor(clip, t) : 0,
-      });
-    }
-  }
-  // Durante una transición también hay que reproducir el clip anterior (tras su final) y el siguiente (antes de empezar).
+/**
+ * Factor de mezcla por clip durante las transiciones: el saliente baja con cos y el entrante sube con sen
+ * a lo largo de toda la ventana. Suman potencia constante, sin bache de volumen en el corte.
+ */
+function crossfadeFactors(project, t) {
+  const factors = new Map();
   for (const track of project.tracks) {
     for (const id of track.clipIds) {
       const clip = project.clips[id];
       const win = transitionWindow(project, clip);
-      if (!inWindow(win, t) || !MEDIA.has(clip.kind)) continue;
-      for (const c of [win.prev, clip]) {
-        if (MEDIA.has(c.kind) && !items.some((i) => i.clip.id === c.id)) {
-          items.push({ clip: c, srcTime: clampedSource(project, c, t), speed: c.speed, hasAudio: false, gain: 0 });
-        }
-      }
+      if (!inWindow(win, t)) continue;
+      const p = (t - win.start) / win.d;
+      factors.set(win.prev.id, Math.cos((p * Math.PI) / 2));
+      factors.set(clip.id, Math.sin((p * Math.PI) / 2));
+    }
+  }
+  return factors;
+}
+
+/**
+ * Clips de vídeo y audio que suenan o se ven en t, con su ganancia (volumen x fundido x mezcla de transición
+ * x silencio de pista). Durante una transición también están el clip anterior (tras su final) y el siguiente
+ * (antes de empezar): se reproducen con el material que haya o se congelan.
+ */
+export function mediaPlan(project, t) {
+  const crossfade = crossfadeFactors(project, t);
+  const items = [];
+  const gainOf = (clip, track, asset, at) => {
+    const audible = clip.kind === 'audio' || asset?.hasAudio;
+    if (!audible || track.muted) return { audible: Boolean(audible), gain: 0 };
+    const inside = Math.min(Math.max(at, clip.start), clipEnd(clip) - 0.001);
+    return { audible: true, gain: clip.volume * fadeFactor(clip, inside) * (crossfade.get(clip.id) ?? 1) };
+  };
+  for (const track of project.tracks) {
+    for (const id of track.clipIds) {
+      const clip = project.clips[id];
+      if (!MEDIA.has(clip.kind)) continue;
+      const covered = crossfade.has(clip.id);
+      if (!active(clip, t) && !covered) continue;
+      const asset = project.assets[clip.assetId];
+      const { audible, gain } = gainOf(clip, track, asset, t);
+      items.push({ clip, srcTime: covered && !active(clip, t) ? clampedSource(project, clip, t) : sourceTime(clip, t), speed: clip.speed, hasAudio: audible, gain });
     }
   }
   return items;

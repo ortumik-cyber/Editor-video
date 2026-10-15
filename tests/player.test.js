@@ -271,8 +271,9 @@ test('mediaPlan y upcomingMedia incluyen los dos clips durante la ventana de tra
   store.dispatch({ type: 'clip/update', clipId: b.id, patch: { transition: { type: 'dissolve', duration: 1 } } });
   const p = store.getProject();
   assert.deepEqual(mediaPlan(p, 3.8).map((i) => i.clip.id).sort(), [a.id, b.id].sort());
-  assert.equal(mediaPlan(p, 3.8).find((i) => i.clip.id === b.id).gain, 0, 'el entrante aún no suena');
-  assert.equal(mediaPlan(p, 4.2).find((i) => i.clip.id === a.id).gain, 0, 'el saliente ya no suena');
+  const gains = (t) => Object.fromEntries(mediaPlan(p, t).map((i) => [i.clip.id === a.id ? 'a' : 'b', i.gain]));
+  assert.ok(gains(3.8).b > 0.4 && gains(3.8).b < 0.5, 'el entrante ya suena, bajito: sen(0,3·π/2)');
+  assert.ok(gains(4.2).a > 0.4 && gains(4.2).a < 0.5, 'el saliente sigue sonando tras su final: cos(0,7·π/2)');
   assert.equal(mediaPlan(p, 3.2).length, 1);
   assert.deepEqual(upcomingMedia(p, 2.6, 1).map((c) => c.id), [b.id], 'se precarga desde el inicio de la ventana');
   assert.deepEqual(upcomingMedia(p, 2.4, 1), []);
@@ -513,4 +514,74 @@ test('dragPinch: escala, gira y mueve con dos dedos', () => {
   assert.ok(Math.abs(turned.rotation - 90) < 1e-9 && Math.abs(turned.scale - 1) < 1e-9);
   const moved = dragPinch(t0, [{ x: 400, y: 500 }, { x: 600, y: 500 }], [{ x: 500, y: 600 }, { x: 700, y: 600 }], size);
   assert.ok(Math.abs(moved.x - 0.1) < 1e-12 && Math.abs(moved.y - 0.1) < 1e-12);
+});
+
+
+// ---------- audio: mezcla en transiciones y separar audio ----------
+
+test('mezcla en transición: potencia constante, 1 y 0 en los extremos, sin bache en el corte', () => {
+  const { store, a, b } = twoClips();
+  store.dispatch({ type: 'clip/update', clipId: b.id, patch: { transition: { type: 'dissolve', duration: 1 } } });
+  const p = store.getProject();
+  const g = (t) => {
+    const m = Object.fromEntries(mediaPlan(p, t).map((i) => [i.clip.id, i.gain]));
+    return [m[a.id] ?? 0, m[b.id] ?? 0];
+  };
+  assert.deepEqual(g(3.4), [1, 0], 'antes de la ventana solo suena A');
+  assert.deepEqual(g(4.6), [0, 1], 'después solo suena B');
+  for (const t of [3.55, 3.75, 4, 4.25, 4.45]) {
+    const [ga, gb] = g(t);
+    assert.ok(Math.abs(ga ** 2 + gb ** 2 - 1) < 1e-9, `potencia constante en ${t}: ${ga ** 2 + gb ** 2}`);
+  }
+  const [ga, gb] = g(4);
+  assert.ok(Math.abs(ga - Math.SQRT1_2) < 1e-9 && Math.abs(gb - Math.SQRT1_2) < 1e-9, 'en el corte suenan a 0,707 cada uno');
+});
+
+test('mezcla en transición: respeta volumen del clip, silencio de pista y vídeo sin audio', () => {
+  const env = setup();
+  const a = env.add(env.video.id, 'video', env.movie.id, 0, 4);
+  const b = env.add(env.video.id, 'video', env.movie.id, 4, 4);
+  env.store.dispatch({ type: 'clip/update', clipId: b.id, patch: { transition: { type: 'dissolve', duration: 1 }, volume: 0.5 } });
+  let plan = mediaPlan(env.store.getProject(), 4);
+  assert.ok(Math.abs(plan.find((i) => i.clip.id === b.id).gain - 0.5 * Math.SQRT1_2) < 1e-9);
+  env.store.dispatch({ type: 'track/update', trackId: env.video.id, patch: { muted: true } });
+  plan = mediaPlan(env.store.getProject(), 4);
+  assert.ok(plan.every((i) => i.gain === 0), 'pista silenciada: todo a cero');
+  const silent = env.add(env.audio.id, 'audio', env.song.id, 10, 2);
+  assert.equal(mediaPlan(env.store.getProject(), 11).find((i) => i.clip.id === silent.id).gain, 1);
+  assert.ok(a);
+});
+
+test('separar audio: copia exacta en pista de audio y vídeo silenciado, en un paso', () => {
+  const { store, video, audio, movie, add } = setup();
+  const v = add(video.id, 'video', movie.id, 2, 5, 3);
+  store.dispatch({ type: 'clip/update', clipId: v.id, patch: { speed: 2, volume: 0.8, fadeIn: 0.5 } });
+  const before = store.getProject().clips[v.id];
+  assert.ok(store.dispatch({ type: 'clip/detach_audio', clipId: v.id, newId: 'aud' }).ok);
+  const p = store.getProject();
+  const a = p.clips.aud;
+  assert.deepEqual([a.kind, a.trackId, a.assetId, a.start, a.duration, a.in, a.speed, a.volume, a.fadeIn], ['audio', audio.id, movie.id, 2, before.duration, 3, 2, 0.8, 0.5]);
+  assert.equal(p.clips[v.id].volume, 0, 'el vídeo queda silenciado');
+  assert.equal(mediaPlan(p, 3).find((i) => i.clip.id === 'aud').hasAudio, true);
+  assert.equal(mediaPlan(p, 3).find((i) => i.clip.id === v.id).gain, 0);
+  store.undo();
+  assert.equal(store.getProject().clips.aud, undefined, 'deshacer quita ambos cambios de una vez');
+  assert.equal(store.getProject().clips[v.id].volume, 0.8);
+});
+
+test('separar audio: crea pista si la de audio está ocupada, y rechaza vídeo sin audio, otros tipos y pistas bloqueadas', () => {
+  const { store, video, audio, movie, mute, song, add } = setup();
+  add(audio.id, 'audio', song.id, 0, 30);
+  const v = add(video.id, 'video', movie.id, 0, 5);
+  const before = store.getProject().tracks.length;
+  assert.ok(store.dispatch({ type: 'clip/detach_audio', clipId: v.id, newId: 'aud' }).ok);
+  const p = store.getProject();
+  assert.equal(p.tracks.length, before + 1, 'pista de audio nueva');
+  assert.notEqual(p.clips.aud.trackId, audio.id);
+  assert.equal(p.tracks.at(-1).kind, 'audio');
+  const m = add(video.id, 'video', mute.id, 10, 3);
+  assert.equal(store.dispatch({ type: 'clip/detach_audio', clipId: m.id }).error.code, 'no_audio');
+  assert.equal(store.dispatch({ type: 'clip/detach_audio', clipId: 'aud' }).error.code, 'kind');
+  store.dispatch({ type: 'track/update', trackId: video.id, patch: { locked: true } });
+  assert.equal(store.dispatch({ type: 'clip/detach_audio', clipId: v.id }).error.code, 'locked');
 });

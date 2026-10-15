@@ -20,10 +20,15 @@ const SLIDERS = {
   scale: { label: 'Tamaño', min: 0.1, max: 3, step: 0.01, def: 1 },
   opacity: { label: 'Opacidad', min: 0, max: 1, step: 0.01, def: 1 },
   speed: { label: 'Velocidad', min: 0.1, max: 8, step: 0.1, def: 1 },
+  volume: { label: 'Volumen', min: 0, max: 4, step: 0.01, def: 1 },
+  fadeIn: { label: 'Fundido de entrada', min: 0, max: 5, step: 0.1, def: 0 },
+  fadeOut: { label: 'Fundido de salida', min: 0, max: 5, step: 0.1, def: 0 },
   trdur: { label: 'Duración de la transición', min: TRANSITION_RANGE.min, max: TRANSITION_RANGE.max, step: 0.1, def: TRANSITION_RANGE.default },
 };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const fmt = (v, step) => Number(v).toFixed(step >= 1 ? 0 : step >= 0.1 ? 1 : 2);
+const PROP_PATCH = new Set(['volume', 'fadeIn', 'fadeOut']);
+const formatProp = (key, v, step) => (key === 'volume' ? `${Math.round(v * 100)}%` : fmt(v, step));
 
 function sliderHtml(key, def, extra = '') {
   return `<div class="ins__row"><label class="ins__label" for="ins-${key}">${def.label}</label>
@@ -63,6 +68,16 @@ function textSection() {
     <select id="ins-t-animOut" class="ins__select" aria-label="Animación de salida" data-text="animOut">${anim('animOut', true)}</select>${range('animOutDuration')}</section>`;
 }
 
+function soundSection(c, canDetach) {
+  const fadeNote = c.kind === 'video' ? 'Los fundidos afectan a la imagen y al sonido.' : '';
+  return `<section class="ins__sec" aria-labelledby="ins-h-sound"><h3 id="ins-h-sound">Sonido</h3>
+    <div class="ins__chips" role="group" aria-label="Sonido del clip">
+      <button type="button" class="ins__chip" data-action="mute-clip" aria-pressed="false">Silenciar</button>
+      ${canDetach ? '<button type="button" class="ins__chip" data-action="detach">Separar audio</button>' : ''}</div>
+    ${['volume', 'fadeIn', 'fadeOut'].map((k) => sliderHtml(`p-${k}`, SLIDERS[k], `data-prop="${k}"`)).join('')}
+    ${fadeNote ? `<p class="ins__note">${fadeNote}</p>` : ''}</section>`;
+}
+
 const chip = (attrs, label) => `<button type="button" class="ins__chip" ${attrs} aria-pressed="false">${label}</button>`;
 const iconButton = (action, name, label) => `<button type="button" class="ins__icon" data-action="${action}" aria-label="${label}" title="${label}">${icon(name)}</button>`;
 
@@ -92,8 +107,14 @@ export function createInspector(root, { store }) {
     const media = c.kind === 'video' || c.kind === 'image';
     const parts = [];
     if (!visual && c.kind !== 'audio') return '';
-    if (c.kind === 'audio') return '<p class="ins__note">El audio se edita en su propio panel (próximamente).</p>';
+    const asset = store.getProject().assets[c.assetId];
+    if (c.kind === 'audio') {
+      return soundSection(c, false) + `<section class="ins__sec" aria-labelledby="ins-h-speed"><h3 id="ins-h-speed">Velocidad</h3>
+        <div class="ins__chips" role="group" aria-label="Velocidades">${SPEEDS.map((v) => chip(`data-speed="${v}"`, `${v}×`)).join('')}</div>
+        ${sliderHtml('p-speed', SLIDERS.speed, 'data-prop="speed"')}</section>`;
+    }
     if (c.kind === 'text') parts.push(textSection());
+    if (c.kind === 'video' && asset?.hasAudio) parts.push(soundSection(c, true));
 
     parts.push(`<section class="ins__sec" aria-labelledby="ins-h-filters"><h3 id="ins-h-filters">Filtros</h3>
       <div class="ins__chips" role="group" aria-label="Filtros">${PRESETS.map((p) => chip(`data-preset="${p.id}"`, p.label)).join('')}</div>
@@ -128,7 +149,7 @@ export function createInspector(root, { store }) {
     if (!input) return;
     input.value = String(value);
     const out = root.querySelector(`output[for="${input.id}"]`);
-    if (out) out.textContent = fmt(value, step);
+    if (out) out.textContent = formatProp(input.dataset.prop, value, step);
   }
   const pressed = (el, on2) => el.setAttribute('aria-pressed', String(on2));
 
@@ -144,7 +165,8 @@ export function createInspector(root, { store }) {
     if (row) { row.hidden = !lastPreset; setRange(row.querySelector('input'), intensity, 0.01); }
     for (const input of body.querySelectorAll('[data-prop]')) {
       const k = input.dataset.prop;
-      const value = k === 'speed' ? c.speed : k === 'trdur' ? (c.transition?.duration ?? TRANSITION_RANGE.default) : c.transform[k];
+      const value = k === 'speed' ? c.speed : PROP_PATCH.has(k) ? c[k] : k === 'trdur' ? (c.transition?.duration ?? TRANSITION_RANGE.default) : c.transform[k];
+      if (k === 'fadeIn' || k === 'fadeOut') input.max = String(Math.min(5, c.duration));
       setRange(input, value, SLIDERS[k].step);
     }
     for (const el of body.querySelectorAll('[data-fit]')) pressed(el, c.fit === el.dataset.fit);
@@ -161,6 +183,8 @@ export function createInspector(root, { store }) {
       if (el) pressed(el, c.flip[key]);
     }
     for (const el of body.querySelectorAll('[data-speed]')) pressed(el, Number(el.dataset.speed) === c.speed);
+    const muteBtn = body.querySelector('[data-action="mute-clip"]');
+    if (muteBtn) pressed(muteBtn, c.volume === 0);
     if (c.kind === 'text') syncText(c.text);
     const hasPrev = Boolean(previousAdjacent(project, c));
     const note = body.querySelector('[data-trans-note]');
@@ -229,6 +253,7 @@ export function createInspector(root, { store }) {
     const key = `ins:${clipId}:${input.id}`;
     if (input.dataset.fx) run({ type: 'effect/set', clipId, effectType: input.dataset.fx, value, coalesce: key });
     else if (input.hasAttribute('data-intensity')) { intensity = value; run({ type: 'effect/preset', clipId, presetId: lastPreset, intensity: value, coalesce: key }); }
+    else if (PROP_PATCH.has(input.dataset.prop)) run({ type: 'clip/update', clipId, patch: { [input.dataset.prop]: value }, coalesce: key });
     else if (input.dataset.prop === 'speed') run({ type: 'clip/update', clipId, patch: { speed: value }, coalesce: key });
     else if (input.dataset.prop === 'trdur') run({ type: 'clip/update', clipId, patch: { transition: { type: clip().transition.type, duration: value } }, coalesce: key });
     else if (input.dataset.prop) run({ type: 'clip/update', clipId, patch: { transform: { [input.dataset.prop]: value } }, coalesce: key });
@@ -252,6 +277,7 @@ export function createInspector(root, { store }) {
     if (!reset || !clipId) return;
     const input = root.querySelector(`#${reset.getAttribute('for')}`);
     if (input.dataset.fx) run({ type: 'effect/set', clipId, effectType: input.dataset.fx, value: EFFECTS[input.dataset.fx].default });
+    else if (PROP_PATCH.has(input.dataset.prop)) run({ type: 'clip/update', clipId, patch: { [input.dataset.prop]: SLIDERS[input.dataset.prop].def } });
     else if (input.dataset.prop === 'speed') run({ type: 'clip/update', clipId, patch: { speed: 1 } });
     else if (input.dataset.prop === 'trdur') run({ type: 'clip/update', clipId, patch: { transition: { type: clip().transition.type, duration: TRANSITION_RANGE.default } } });
     else if (input.dataset.prop) run({ type: 'clip/update', clipId, patch: { transform: { [input.dataset.prop]: SLIDERS[input.dataset.prop].def } } });
@@ -267,6 +293,8 @@ export function createInspector(root, { store }) {
     if (d.align) { patchText({ align: d.align }); sync(); return; }
     if (d.textToggle === 'bold') { patchText({ weight: resolveWeight(c.text.font, c.text.weight >= 600 ? 400 : 700) }); sync(); return; }
     if (d.textToggle === 'shadow') { patchText({ shadow: !c.text.shadow }); sync(); return; }
+    if (d.action === 'mute-clip') { run({ type: 'clip/update', clipId, patch: { volume: c.volume === 0 ? 1 : 0 } }); sync(); return; }
+    if (d.action === 'detach') { if (run({ type: 'clip/detach_audio', clipId }).ok) say('Audio separado en una pista de audio'); sync(); return; }
     if (d.preset) { lastPreset = d.preset; intensity = 1; run({ type: 'effect/preset', clipId, presetId: d.preset }); }
     else if (d.action === 'clear-fx') { lastPreset = null; run({ type: 'effect/clear', clipId }); }
     else if (d.fit) run({ type: 'clip/update', clipId, patch: { fit: d.fit } });

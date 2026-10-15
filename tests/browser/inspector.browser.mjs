@@ -152,8 +152,10 @@ try {
 
   // --- el panel se adapta al tipo de clip
   await pick(audio.id);
-  assert.match(await page.locator('.ins__note').textContent(), /audio/i);
-  assert.equal(await page.locator('.ins__range').count(), 0);
+  assert.equal(await page.locator('[data-prop="volume"]').count(), 1, 'el audio tiene volumen');
+  assert.equal(await page.locator('[data-fx]').count(), 0, 'pero no efectos de imagen');
+  assert.equal(await page.locator('[data-fit], [data-crop]').count(), 0);
+  assert.ok(await page.locator('[data-speed]').count(), 'y velocidad');
   await run(async () => {
     const { addTextClip } = await import('/src/timeline/index.js');
     addTextClip(store, { text: { content: 'Hola' } });

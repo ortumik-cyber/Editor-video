@@ -1,7 +1,7 @@
 import { newId } from './ids.js';
 import {
   ASPECTS, CLIP_KINDS_BY_TRACK, EPS, FIT_MODES, FPS_OPTIONS, MEDIA_CLIP_KINDS, MIN_CLIP_DURATION,
-  TRACK_KINDS, createTrack, snap,
+  TRACK_KINDS, createClip, createTrack, snap,
 } from './project.js';
 import { EFFECTS, EFFECT_TYPES, TRANSITION_IDS, TRANSITION_RANGE, clampEffectValue, presetEffects } from './effects.js';
 import { textError } from './text.js';
@@ -222,6 +222,31 @@ const handlers = {
     };
     left.fadeIn = Math.min(left.fadeIn, left.duration);
     return putClip(putClip(p, left), right);
+  },
+
+  /** Copia el audio de un vídeo a un clip de audio en la misma posición y silencia el vídeo. */
+  'clip/detach_audio': (p, { clipId, newId: audioId }) => {
+    const clip = needClip(p, clipId);
+    needUnlocked(needTrack(p, clip.trackId));
+    if (clip.kind !== 'video') fail('kind', 'Solo un vídeo tiene audio que separar');
+    if (!p.assets[clip.assetId]?.hasAudio) fail('no_audio', 'Este vídeo no tiene audio');
+    const end = clipEnd(clip);
+    const free = (track) => track.clipIds.every((id) => {
+      const c = p.clips[id];
+      return end <= c.start + EPS || clip.start >= clipEnd(c) - EPS;
+    });
+    let next = p;
+    let track = p.tracks.find((t) => t.kind === 'audio' && !t.locked && free(t));
+    if (!track) {
+      track = createTrack({ kind: 'audio', name: 'Audio' });
+      next = { ...p, tracks: [...p.tracks, track] };
+    }
+    const audio = {
+      ...createClip({ trackId: track.id, kind: 'audio', assetId: clip.assetId, start: clip.start, duration: clip.duration, in: clip.in, id: audioId }),
+      speed: clip.speed, volume: clip.volume, fadeIn: clip.fadeIn, fadeOut: clip.fadeOut,
+    };
+    assertClipShape(next, audio);
+    return putClip(putClip(next, audio), { ...clip, volume: 0 });
   },
 
   'clip/duplicate': (p, { clipId, newId: copyId }) => {

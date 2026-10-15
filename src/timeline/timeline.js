@@ -21,6 +21,7 @@ const BUTTONS = [
   ['undo', 'undo', 'Deshacer (Ctrl+Z)'],
   ['redo', 'redo', 'Rehacer (Ctrl+Mayús+Z)'],
   ['layer', 'layer', 'Añadir capa de vídeo'],
+  ['mute', 'volume', 'Silenciar la pista del clip seleccionado (M)'],
   ['zoomOut', 'zoomOut', 'Alejar (-)'],
   ['zoomIn', 'zoomIn', 'Acercar (+)'],
 ];
@@ -140,7 +141,7 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
 
     rows = [...project.tracks].reverse().map((track) => {
       const row = doc.createElement('div');
-      row.className = `tl__row tl__row--${track.kind}${track.locked ? ' is-locked' : ''}`;
+      row.className = `tl__row tl__row--${track.kind}${track.locked ? ' is-locked' : ''}${track.muted ? ' is-muted' : ''}`;
       row.dataset.trackId = track.id;
       row.innerHTML = `<div class="tl__head"><button type="button" class="tl__btn tl__lock" data-track-action="lock" aria-pressed="${track.locked}" aria-label="${track.locked ? 'Desbloquear' : 'Bloquear'} pista ${track.name}" title="${track.locked ? 'Desbloquear' : 'Bloquear'} pista">${icon(track.locked ? 'lock' : 'unlock')}</button></div><div class="tl__lane"></div>`;
       const lane = row.querySelector('.tl__lane');
@@ -188,8 +189,25 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     set('duplicate', state.selection.length > 0);
     set('delete', state.selection.length > 0);
     set('split', state.selection.length > 0 || clipsAt(store.getProject(), state.playhead).length > 0);
+    const selected = store.getProject().clips[state.selection[0]];
+    const track = selected && store.getProject().tracks.find((t) => t.id === selected.trackId);
+    const mutable = Boolean(track) && track.kind !== 'text';
+    set('mute', mutable);
+    const mute = $('[data-action="mute"]');
+    const muted = mutable && track.muted;
+    mute.setAttribute('aria-pressed', String(muted));
+    mute.setAttribute('aria-label', muted ? 'Activar el sonido de la pista (M)' : 'Silenciar la pista del clip seleccionado (M)');
+    mute.title = mute.getAttribute('aria-label');
+    mute.innerHTML = icon(muted ? 'volumeOff' : 'volume');
     set('zoomIn', ui.pps < 480);
     set('zoomOut', ui.pps > 8);
+  }
+
+  function toggleMute() {
+    const selected = store.getProject().clips[store.getState().selection[0]];
+    const track = selected && store.getProject().tracks.find((t) => t.id === selected.trackId);
+    if (!track || track.kind === 'text') return;
+    run(store.dispatch({ type: 'track/update', trackId: track.id, patch: { muted: !track.muted } }));
   }
 
   function setZoom(next, anchorX = scroll.clientWidth / 2) {
@@ -327,6 +345,7 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
       delete: () => run(deleteSelected(store)),
       undo: () => store.undo(),
       redo: () => store.redo(),
+      mute: () => toggleMute(),
       layer: () => run(store.dispatch({ type: 'track/add', kind: 'video', index: store.getProject().tracks.findLastIndex((t) => t.kind === 'video') + 1 })),
       zoomIn: () => setZoom(ui.pps * 1.25),
       zoomOut: () => setZoom(ui.pps / 1.25),
@@ -351,6 +370,7 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     if (mod) return;
     const handlers = {
       s: () => run(splitAtPlayhead(store)),
+      m: () => toggleMute(),
       d: () => run(duplicateSelected(store)),
       delete: () => run(deleteSelected(store, { ripple: e.shiftKey })),
       backspace: () => run(deleteSelected(store, { ripple: e.shiftKey })),

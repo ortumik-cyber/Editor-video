@@ -24,7 +24,9 @@
 }
 .tl__toolbar .tl__btn:nth-child(3),
 .tl__toolbar .tl__btn:nth-child(5),
-.tl__toolbar .tl__btn:nth-child(6) { margin-right: var(--space-3); }
+.tl__toolbar .tl__btn:nth-child(7) { margin-right: var(--space-3); }
+.tl__btn[aria-pressed="true"] { background: var(--color-primary); color: var(--color-on-primary); }
+.tl__row.is-muted .tl__clip { opacity: 0.5; }
 
 .tl__btn {
   flex: none;
