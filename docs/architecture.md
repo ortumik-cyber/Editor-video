@@ -121,6 +121,9 @@ La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con
 - `sw.js` guarda todo lo que lista `precache.json` (`npm run precache`) en una caché por versión y sirve primero desde ella. `npm test` falla si `precache.json` o la versión estampada en `sw.js` están desfasados.
 - Una versión nueva queda en espera; un aviso con botón la activa y recarga. No se recarga sola.
 - En `localhost` el service worker solo se registra con `?sw`, para que el desarrollo no sirva código antiguo.
+- Tira de fotogramas: al importar un vídeo se guarda `${assetId}:strip` (WebP de 72 px de alto, de 4 a 16 fotogramas repartidos por todo el medio). Los proyectos anteriores no la tienen y usan la miniatura. El clip la coloca detrás con CSS puro (`stripLayout`): tamaño `duración del medio / tramo visible × ancho` y desplazamiento proporcional al punto de entrada. Recortar o cambiar la velocidad no regenera nada. Limitación: los fotogramas se estiran al ancho del clip, así que con mucho zoom se ven alargados.
+- Pellizco: eventos `touch` en la línea de tiempo (`touch-action: pan-x pan-y` impide el zoom de la página). El pellizco escucha en los elementos tocados, no en `scroll`: cada cambio de zoom reconstruye el DOM y los eventos de un elemento desconectado ya no suben.
+- Ayuda de atajos: tecla `?` o botón de la barra superior.
 - Iconos: `icons/*.svg` son la fuente; `node scripts/make-icons.mjs` genera los PNG con Chromium.
 - La prueba sin conexión apaga el servidor. `setOffline` de Playwright no corta las peticiones del propio service worker y daría un falso verde.
 

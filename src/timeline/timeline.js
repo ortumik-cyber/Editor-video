@@ -4,7 +4,7 @@ import { formatDuration } from '../library/kinds.js';
 import { addAssetClip, deleteSelected, duplicateSelected, nudgeSelected, splitAtPlayhead } from './actions.js';
 import { resolveMove, resolveTrim } from './edit.js';
 import {
-  GUTTER, ZOOM_DEFAULT, clampZoom, contentWidth, rulerTicks, timeToX, waveformPath, xToTime, zoomScroll,
+  GUTTER, ZOOM_DEFAULT, clampZoom, contentWidth, rulerTicks, stripLayout, timeToX, waveformPath, xToTime, zoomScroll,
 } from './geometry.js';
 import { icon } from '../ui/icons.js';
 
@@ -37,6 +37,7 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
   const on = (target, type, fn, options) => target.addEventListener(type, fn, { ...options, signal: abort.signal });
   const ui = { pps: ZOOM_DEFAULT, follow: false };
   const thumbs = new Map();
+  const strips = new Map();
   let rows = [];
   let gesture = null;
 
@@ -84,7 +85,38 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     library.getThumbUrl(assetId).then((url) => {
       if (!url) return;
       thumbs.set(assetId, url);
-      for (const el of root.querySelectorAll(`[data-asset-id="${assetId}"] .tl__clip-bg`)) el.style.backgroundImage = `url("${url}")`;
+      const project = store.getProject();
+      for (const el of root.querySelectorAll(`[data-asset-id="${assetId}"]`)) {
+        const clip = project.clips[el.dataset.clipId];
+        const bg = el.querySelector('.tl__clip-bg');
+        if (clip && bg) paintBackground(bg, clip, project.assets[assetId], clip.duration * ui.pps);
+      }
+    }).catch(() => {});
+  }
+
+  /** Fondo del clip: la tira de fotogramas si existe (alineada con el tramo visible) y si no, la miniatura. */
+  function paintBackground(bg, clip, asset, width) {
+    const strip = clip.kind === 'video' ? strips.get(asset.id) : null;
+    if (strip) {
+      const { size, x } = stripLayout({ assetDuration: asset.duration, inPoint: clip.in, span: clip.duration * clip.speed, width });
+      Object.assign(bg.style, { backgroundImage: `url("${strip}")`, backgroundSize: `${size}px 100%`, backgroundPosition: `${x}px 0`, backgroundRepeat: 'no-repeat' });
+    } else if (thumbs.get(asset.id)) {
+      Object.assign(bg.style, { backgroundImage: `url("${thumbs.get(asset.id)}")`, backgroundSize: '', backgroundPosition: '', backgroundRepeat: '' });
+    }
+  }
+
+  function ensureStrip(assetId) {
+    if (!library?.getStripUrl || strips.has(assetId)) return;
+    strips.set(assetId, null);
+    library.getStripUrl(assetId).then((url) => {
+      if (!url) return;
+      strips.set(assetId, url);
+      const project = store.getProject();
+      for (const el of root.querySelectorAll(`[data-asset-id="${assetId}"]`)) {
+        const clip = project.clips[el.dataset.clipId];
+        const bg = el.querySelector('.tl__clip-bg');
+        if (clip && bg && !el.style.transform) paintBackground(bg, clip, project.assets[assetId], clip.duration * ui.pps);
+      }
     }).catch(() => {});
   }
 
@@ -105,9 +137,10 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     if (clip.kind === 'video' || clip.kind === 'image') {
       const bg = doc.createElement('div');
       bg.className = 'tl__clip-bg';
-      if (thumbs.get(asset.id)) bg.style.backgroundImage = `url("${thumbs.get(asset.id)}")`;
+      paintBackground(bg, clip, asset, width);
       el.append(bg);
       ensureThumb(asset.id);
+      if (clip.kind === 'video') ensureStrip(asset.id);
     } else if (clip.kind === 'audio') {
       const d = waveformPath(asset.peaks, { assetDuration: asset.duration, inPoint: clip.in, span: clip.duration * clip.speed, width, height: CLIP_H });
       if (d) el.insertAdjacentHTML('beforeend', `<svg class="tl__wave" viewBox="0 0 ${width} ${CLIP_H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}"/></svg>`);
@@ -251,6 +284,7 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
 
   on(content, 'pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (pinch) return;
     const project = store.getProject();
     const handle = e.target.closest('.tl__handle');
     const clipEl = e.target.closest('.tl__clip');
@@ -353,6 +387,33 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     actions[button.dataset.action]();
   });
 
+  // Pellizco con dos dedos: zoom anclado en el punto medio. Se bloquea el desplazamiento nativo mientras dura.
+  // Al cambiar el zoom se reconstruye el DOM y los elementos tocados salen del documento: los eventos de un
+  // elemento desconectado no suben hasta `scroll`, así que se escucha en los propios elementos tocados.
+  let pinch = null;
+  const touchSpan = (t) => ({ dist: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY), mid: (t[0].clientX + t[1].clientX) / 2 });
+  const stopPinch = () => { pinch?.abort.abort(); pinch = null; };
+  on(scroll, 'touchstart', (e) => {
+    if (e.touches.length !== 2) return;
+    if (gesture) endGesture(false);
+    stopPinch();
+    const { dist, mid } = touchSpan(e.touches);
+    pinch = { dist: Math.max(dist, 1), pps: ui.pps, mid, abort: new AbortController() };
+    const { signal } = pinch.abort;
+    for (const touch of e.touches) {
+      touch.target.addEventListener('touchmove', (ev) => {
+        if (!pinch || ev.touches.length !== 2) return;
+        if (ev.cancelable) ev.preventDefault();
+        const now = touchSpan(ev.touches);
+        setZoom(pinch.pps * (now.dist / pinch.dist), now.mid - scroll.getBoundingClientRect().left);
+      }, { passive: false, signal });
+      const end = (ev) => { if (ev.touches.length < 2) stopPinch(); };
+      touch.target.addEventListener('touchend', end, { signal });
+      touch.target.addEventListener('touchcancel', end, { signal });
+    }
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+
   on(scroll, 'wheel', (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
@@ -397,9 +458,10 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     render,
     setZoom,
     getZoom: () => ui.pps,
+    get pinching() { return Boolean(pinch); },
     addAsset: (assetId) => run(addAssetClip(store, assetId)),
     scrollToTime: (t) => { scroll.scrollLeft = Math.max(0, timeToX(t, ui.pps) - scroll.clientWidth * 0.3); },
     set follow(value) { ui.follow = Boolean(value); },
-    destroy() { abort.abort(); unsubscribe(); root.replaceChildren(); root.classList.remove('tl'); },
+    destroy() { stopPinch(); abort.abort(); unsubscribe(); root.replaceChildren(); root.classList.remove('tl'); },
   };
 }

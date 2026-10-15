@@ -70,6 +70,15 @@ export function askNewProject({ aspects, defaultName = 'Mi proyecto', doc }) {
   } });
 }
 
+/** Lista de pares «tecla — acción». Un solo botón para cerrar. */
+export function showShortcuts({ title, groups, doc }) {
+  return openDialog({ title, doc, build(body, finish) {
+    body.innerHTML = `${groups.map((g) => `<section class="dlg__group"><h3>${esc(g.title)}</h3><dl class="dlg__keys">${g.items.map(([keys, what]) => `<dt>${keys.map((k) => `<kbd>${esc(k)}</kbd>`).join(' + ')}</dt><dd>${esc(what)}</dd>`).join('')}</dl></section>`).join('')}
+      ${actions('<button type="button" class="dlg__btn dlg__btn--primary" data-r="ok" autofocus>Cerrar</button>')}`;
+    body.querySelector('[data-r="ok"]').addEventListener('click', () => finish(true));
+  } });
+}
+
 /** Mensaje breve no modal, anunciado a lectores de pantalla. */
 export function createToaster(doc = document) {
   const region = doc.createElement('div');

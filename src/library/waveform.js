@@ -23,4 +23,10 @@ export function computePeaks(channels, buckets) {
 /** 5 picos por segundo, entre 50 y 1000. */
 export const bucketsFor = (duration) => Math.min(1000, Math.max(50, Math.round(duration * 5)));
 
+/** Fotogramas de la tira de un vídeo: uno cada 2 s, entre 4 y 16. */
+export const stripFrames = (duration) => Math.min(16, Math.max(4, Math.round(duration / 2)));
+
+/** Instantes del centro de cada tramo. Evita el primer y el último fotograma, que suelen ser negros. */
+export const stripTimes = (duration, n = stripFrames(duration)) => Array.from({ length: n }, (_, i) => ((i + 0.5) / n) * duration);
+
 export const thumbnailTime = (duration) => (duration < 2 ? duration / 2 : 1);

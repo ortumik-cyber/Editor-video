@@ -7,7 +7,7 @@ import { createLibrary } from '../library/library.js';
 import { createPreview } from '../player/preview.js';
 import { createAddPanel } from '../text/picker.js';
 import { createTimeline } from '../timeline/timeline.js';
-import { askConfirm, askText } from '../ui/dialog.js';
+import { askConfirm, askText, showShortcuts } from '../ui/dialog.js';
 import { icon } from '../ui/icons.js';
 import { createMediaPanel } from './media-panel.js';
 import { createProjectPanel } from './project-panel.js';
@@ -19,6 +19,16 @@ const TABS = [
   { id: 'project', label: 'Proyecto', icon: 'frame' },
 ];
 const TITLES = { media: 'Medios', add: 'Añadir', edit: 'Editar', project: 'Proyecto', export: 'Exportar' };
+const SHORTCUTS = [
+  { title: 'Reproducción', items: [[['Espacio'], 'Reproducir o pausar'], [['Inicio'], 'Ir al principio'], [['Fin'], 'Ir al final']] },
+  { title: 'Línea de tiempo', items: [
+    [['S'], 'Dividir en el cursor'], [['D'], 'Duplicar el clip'], [['M'], 'Silenciar la pista'],
+    [['Supr'], 'Borrar el clip'], [['Mayús', 'Supr'], 'Borrar y cerrar el hueco'],
+    [['←', '→'], 'Mover un fotograma'], [['Mayús', '←', '→'], 'Mover un segundo'],
+    [['+', '-'], 'Acercar y alejar'], [['Ctrl', 'rueda'], 'Zoom con el ratón'],
+  ] },
+  { title: 'General', items: [[['Ctrl', 'Z'], 'Deshacer'], [['Ctrl', 'Mayús', 'Z'], 'Rehacer'], [['?'], 'Esta ayuda']] },
+];
 const WIDE = '(min-width: 960px)';
 
 /**
@@ -41,6 +51,7 @@ export async function mountEditor(root, { project, repo, manager, navigate, toas
         <button type="button" class="ed__icon" data-act="back" aria-label="Volver a mis proyectos">${icon('back')}</button>
         <button type="button" class="ed__title" data-act="rename"></button>
         <span class="ed__spacer"></span>
+        <button type="button" class="ed__icon" data-act="help" aria-label="Atajos de teclado (?)" title="Atajos de teclado (?)">${icon('help')}</button>
         <button type="button" class="ed__icon" data-act="undo" aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)">${icon('undo')}</button>
         <button type="button" class="ed__icon" data-act="redo" aria-label="Rehacer (Ctrl+Mayús+Z)" title="Rehacer (Ctrl+Mayús+Z)">${icon('redo')}</button>
         <button type="button" class="ed__export" data-act="export">${icon('download')}<span>Exportar</span></button>
@@ -122,6 +133,7 @@ export async function mountEditor(root, { project, repo, manager, navigate, toas
     if (act === 'back') await goBack();
     else if (act === 'undo') store.undo();
     else if (act === 'redo') store.redo();
+    else if (act === 'help') await showShortcuts({ title: 'Atajos de teclado', groups: SHORTCUTS, doc });
     else if (act === 'export') setTab('export');
     else if (act === 'close') setTab(wide.matches ? 'media' : '');
     else if (act === 'rename') {
@@ -142,6 +154,7 @@ export async function mountEditor(root, { project, repo, manager, navigate, toas
     const key = e.key.toLowerCase();
     if (mod && key === 'z') { e.preventDefault(); if (e.shiftKey) store.redo(); else store.undo(); }
     else if (mod && key === 'y') { e.preventDefault(); store.redo(); }
+    else if (e.key === '?') { e.preventDefault(); showShortcuts({ title: 'Atajos de teclado', groups: SHORTCUTS, doc }); }
   });
 
   // ---------- guardado y arrastrar archivos ----------

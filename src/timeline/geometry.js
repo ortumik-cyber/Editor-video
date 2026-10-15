@@ -7,6 +7,16 @@ export const ZOOM_MIN = 8;
 export const ZOOM_MAX = 480;
 export const ZOOM_DEFAULT = 80;
 
+/**
+ * Coloca la tira de fotogramas (que cubre el medio entero) detrás de un clip que solo muestra
+ * el tramo [inPoint, inPoint + span]. Devuelve tamaño y desplazamiento horizontal en píxeles.
+ */
+export function stripLayout({ assetDuration, inPoint, span, width }) {
+  if (!(assetDuration > 0) || !(span > 0)) return { size: width, x: 0 };
+  const size = (assetDuration / span) * width;
+  return { size, x: -(inPoint / assetDuration) * size || 0 };
+}
+
 export const clampZoom = (pps) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pps));
 export const timeToX = (time, pps) => GUTTER + time * pps;
 export const xToTime = (x, pps) => Math.max(0, (x - GUTTER) / pps);

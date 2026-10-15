@@ -18,6 +18,7 @@ export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, 
   const urls = new Map();
 
   const thumbKey = (assetId) => `${assetId}:thumb`;
+  const stripKey = (assetId) => `${assetId}:strip`;
 
   async function importFile(file, coalesce) {
     const check = validateFile(file, { maxBytes });
@@ -33,7 +34,7 @@ export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, 
         cause: error,
       };
     }
-    const { info, thumb, peaks, hasAudio } = inspected;
+    const { info, thumb, strip, peaks, hasAudio } = inspected;
     if (check.kind !== 'image' && !(info.duration > 0)) {
       return { ok: false, name: file.name, code: 'unreadable', message: `${file.name} no tiene duración válida.` };
     }
@@ -53,10 +54,12 @@ export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, 
 
     await repo.putMedia(asset.id, file);
     if (thumb) await repo.putMedia(thumbKey(asset.id), thumb);
+    if (strip) await repo.putMedia(stripKey(asset.id), strip);
     const result = store.dispatch({ type: 'asset/add', asset, coalesce });
     if (!result.ok) {
       await repo.removeMedia(asset.id);
       await repo.removeMedia(thumbKey(asset.id));
+      await repo.removeMedia(stripKey(asset.id));
       return { ok: false, name: file.name, code: result.error.code, message: result.error.message };
     }
     return { ok: true, asset };
@@ -110,6 +113,8 @@ export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, 
     removeAsset,
     getUrl: (assetId) => urlFor(assetId),
     getThumbUrl: (assetId) => (store.getProject().assets[assetId]?.hasThumb ? urlFor(thumbKey(assetId)) : Promise.resolve(null)),
+    /** Tira de fotogramas de un vídeo, o null si no existe (proyectos antiguos o fallo al crearla). */
+    getStripUrl: (assetId) => urlFor(stripKey(assetId)),
     getFile: (assetId) => repo.getMedia(assetId),
     collectGarbage,
     dispose,

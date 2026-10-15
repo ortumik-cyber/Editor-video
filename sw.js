@@ -1,6 +1,6 @@
 // Service worker: guarda la aplicación entera y la sirve sin conexión. Cada versión usa su propia caché.
 // La versión la estampa scripts/make-precache.mjs: así el navegador ve cambiar sw.js en cada despliegue.
-const BUILD = '0b0a4d188095';
+const BUILD = '47133502fd82';
 const LIST = new URL('precache.json', self.location);
 const PREFIX = 'editor-video-';
 

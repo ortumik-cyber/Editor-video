@@ -1,4 +1,4 @@
-import { bucketsFor, computePeaks, thumbnailTime } from './waveform.js';
+import { bucketsFor, computePeaks, stripTimes, thumbnailTime } from './waveform.js';
 
 const READY_TIMEOUT = 20000;
 
@@ -78,6 +78,19 @@ async function drawThumb(doc, source, width, height, maxSide) {
   return canvasToBlob(canvas, 'image/webp', 0.72);
 }
 
+/** Tira horizontal con fotogramas repartidos por todo el vídeo. La altura es fija: pesa poco y se estira al ancho del clip. */
+async function drawStrip(doc, el, duration, width, height, frameH = 72) {
+  const times = stripTimes(duration);
+  const frameW = Math.max(1, Math.round((width / height) * frameH));
+  const canvas = makeCanvas(doc, frameW * times.length, frameH);
+  const ctx = canvas.getContext('2d');
+  for (const [i, t] of times.entries()) {
+    await seekTo(el, t);
+    ctx.drawImage(el, i * frameW, 0, frameW, frameH);
+  }
+  return canvasToBlob(canvas, 'image/webp', 0.6);
+}
+
 /** Decodifica a 8 kHz para no gastar memoria. Falla si el archivo no tiene pista de audio legible. */
 async function decodePeaks(file, duration) {
   const Offline = globalThis.OfflineAudioContext ?? globalThis.webkitOfflineAudioContext;
@@ -123,12 +136,14 @@ export function createDomAdapters({
         await seekTo(el, thumbnailTime(duration));
         thumb = await drawThumb(doc, el, info.width, info.height, thumbSize);
       } catch { /* sin miniatura: la importación sigue */ }
+      let strip = null;
+      try { strip = await drawStrip(doc, el, duration, info.width, info.height); } catch { /* sin tira: se usa la miniatura */ }
       let peaks = null;
       let hasAudio = true;
       if (canDecode(file, duration)) {
         try { peaks = await decodePeaks(file, duration); } catch { hasAudio = false; }
       }
-      return { info, thumb, peaks, hasAudio };
+      return { info, thumb, strip, peaks, hasAudio };
     } finally {
       handle.close();
     }

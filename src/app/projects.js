@@ -80,6 +80,7 @@ export function createProjectManager({ repo }) {
         if (live.has(assetId)) continue;
         await repo.removeMedia(assetId);
         await repo.removeMedia(`${assetId}:thumb`);
+        await repo.removeMedia(`${assetId}:strip`);
         removed++;
       }
       return removed;
