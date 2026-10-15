@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../src/player/preview.css">
   <link rel="stylesheet" href="../src/effects/panel.css">
   <link rel="stylesheet" href="../src/text/picker.css">
+  <link rel="stylesheet" href="../src/export/panel.css">
   <style>
     html, body { height: 100%; margin: 0; background: var(--color-background); color: var(--color-foreground); font: 400 var(--text-base)/var(--leading-base) var(--font-sans); }
     body { display: flex; flex-direction: column; }
@@ -39,6 +40,7 @@
   </div>
   <div class="tray" id="tray"></div>
   <details class="adder"><summary class="pill pill--ghost">Añadir texto, stickers y emoji</summary><div id="add-panel"></div></details>
+  <details class="adder" id="export-details"><summary class="pill pill--ghost">Exportar</summary><div id="export-panel"></div></details>
   <div class="stage"><div id="preview"></div><div id="inspector"></div></div>
   <div id="timeline"></div>
   <script type="module">
@@ -48,6 +50,7 @@
     import { createPreview } from '../src/player/index.js';
     import { createInspector } from '../src/effects/panel.js';
     import { createAddPanel } from '../src/text/picker.js';
+    import { createExportPanel } from '../src/export/panel.js';
 
     const store = createStore(createProject({ name: 'Demo' }));
     const repo = createRepo(createIndexedDbBackend(`editor-video-dev-${Date.now()}`));
@@ -58,6 +61,7 @@
     const recorder = preview.recorder;
     createInspector(document.getElementById('inspector'), { store });
     createAddPanel(document.getElementById('add-panel'), { store, library });
+    window.exportPanel = createExportPanel(document.getElementById('export-panel'), { store, library, player, onMessage: (m) => { document.getElementById('msg').textContent = m; } });
     player.subscribe(({ playing }) => { timeline.follow = playing; });
     Object.assign(window, { store, library, timeline, player, recorder });
 

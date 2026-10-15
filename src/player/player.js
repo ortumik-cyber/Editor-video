@@ -4,6 +4,7 @@ import { composeFrame } from './compose.js';
 import { flattenLayers, mediaPlan, upcomingMedia, visualPlan } from './plan.js';
 import { createGlRenderer } from '../render/gl.js';
 import { fonts } from '../text/fonts.js';
+import { createImageCache } from './images.js';
 import { createMediaPool } from './pool.js';
 
 const LOOKAHEAD = 1;
@@ -17,7 +18,7 @@ const DRIFT_MAX = 0.25;
 export function createPlayer({ store, library, canvas, doc = canvas.ownerDocument, maxPreviewSide = 960, useWebGl = true }) {
   const audio = createAudioGraph();
   const pool = createMediaPool({ library: { ...library, getAsset: (id) => store.getProject().assets[id] }, audio, doc });
-  const images = new Map();
+  const images = createImageCache(library);
   const listeners = new Set();
   const ctx = canvas.getContext('2d', { alpha: false });
   let renderer = null;
@@ -34,25 +35,8 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
   const emit = () => listeners.forEach((fn) => fn({ playing }));
   const setHead = (t) => { ownSeek = true; store.setPlayhead(t); ownSeek = false; };
 
-  function loadImage(assetId) {
-    let entry = images.get(assetId);
-    if (!entry) {
-      entry = { bitmap: null };
-      entry.promise = library.getFile(assetId)
-        .then((blob) => (blob ? createImageBitmap(blob) : null))
-        .then((bitmap) => { entry.bitmap = bitmap; })
-        .catch(() => {});
-      images.set(assetId, entry);
-    }
-    return entry.promise;
-  }
-
   function sourceFor(clip) {
-    if (clip.kind === 'image') {
-      const { bitmap } = images.get(clip.assetId) ?? {};
-      return bitmap ? { image: bitmap, width: bitmap.width, height: bitmap.height } : null;
-    }
-    return pool.sourceFor(clip);
+    return clip.kind === 'image' ? images.source(clip.assetId) : pool.sourceFor(clip);
   }
 
   function draw(plan) {
@@ -78,7 +62,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     const keep = new Set();
     await fonts.loadFor(flattenLayers(plan).map((l) => l.clip));
     await Promise.all(flattenLayers(plan).map(async ({ clip, srcTime }) => {
-      if (clip.kind === 'image') return loadImage(clip.assetId);
+      if (clip.kind === 'image') return images.load(clip.assetId);
       if (clip.kind !== 'video') return undefined;
       keep.add(clip.id);
       const entry = pool.acquire(clip);
@@ -131,7 +115,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
     if (t >= end) { setHead(end); pause(); return; }
     sync(project, t);
     const plan = visualPlan(project, t);
-    for (const { clip } of flattenLayers(plan)) if (clip.kind === 'image') loadImage(clip.assetId);
+    for (const { clip } of flattenLayers(plan)) if (clip.kind === 'image') images.load(clip.assetId);
     fonts.loadFor(flattenLayers(plan).map((l) => l.clip));
     draw(plan);
     setHead(t);
@@ -195,8 +179,7 @@ export function createPlayer({ store, library, canvas, doc = canvas.ownerDocumen
       cancelAnimationFrame(raf);
       pool.disposeAll();
       renderer?.dispose();
-      for (const { bitmap } of images.values()) bitmap?.close();
-      images.clear();
+      images.dispose();
     },
   };
 }

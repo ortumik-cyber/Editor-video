@@ -13,7 +13,7 @@ App en el navegador, sin framework ni paso de build. Módulos ES. Los archivos d
 | 5 | Efectos, filtros, transiciones, recorte, volteo y giro | hecho |
 | 6 | Texto, tipografías, animaciones, stickers, emoji y manipulación directa | hecho |
 | 7 | Audio: sonido, separar audio, efectos, locución, mezcla y medidor | hecho |
-| 8 | Exportación MP4 (WebCodecs + muxer) | pendiente |
+| 8 | Exportación (WebCodecs + muxers): MP4/H.264, WebM/VP9 | hecho |
 | 9 | Interfaz y PWA | pendiente |
 
 ## Núcleo (`src/core`)
@@ -100,6 +100,18 @@ La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con
 - `audio/recorder.js`: locución con `MediaRecorder`. Graba mientras el vídeo avanza desde el cursor y al parar importa la grabación y la coloca donde empezó, en una pista de audio libre (o nueva). Errores con mensaje claro: permiso denegado, sin micrófono, micrófono en uso, sin soporte, grabación demasiado corta. Con altavoces la grabación recoge también el sonido del proyecto: lo recomendable son auriculares.
 - Medidor de nivel de la barra de la vista previa: escala de -60 a 0 dB, sube al instante y baja poco a poco. Muestra el mezclador al reproducir y el micrófono al grabar.
 - Un medio más corto que 0,1 s (un chasquido de 50 ms) se puede colocar entero, pero no más corto.
+
+## Exportación (`src/export`, `vendor`)
+
+- **Mismo código que la vista previa.** Cada fotograma se dibuja con `visualPlan` y el renderizador WebGL de siempre, a la resolución de salida, y se codifica con `VideoEncoder`. El audio se mezcla fuera de línea con `OfflineAudioContext` usando la **misma** función `mediaPlan` (volumen, fundidos, silencio de pista, mezcla de transición), muestreada cada 5 ms. Por eso lo exportado se ve y suena como lo que se editó.
+- **Formato por soporte real** (`formats.js`): MP4 con H.264 y AAC si el navegador los codifica; si no, WebM con VP9 u VP8 y Opus. `mp4-vp9` (MP4 con VP9 y Opus) solo sale si se pide. El panel anuncia el formato antes de exportar. Si no hay ninguno, un error claro.
+- **Velocidad sin cambiar el tono** (`audio/stretch.js`, WSOLA): en la vista previa el navegador conserva el tono a 2×; exportar con `playbackRate` lo subiría una octava. El estiramiento se hace una vez por medio y velocidad.
+- **Fotogramas de origen:** se buscan en un `<video>` con `currentTime` exacto, el mismo decodificador que la vista previa. Es más lento que el tiempo real. Los vídeos se descartan del pool al dejar de usarse.
+- Sin audio audible, el archivo no lleva pista de audio. Marcas de tiempo de 1/fps exactas. Un fotograma clave cada 2 s. El archivo se arma en memoria.
+- Se puede cancelar (`AbortSignal`): se cierran los codificadores y se liberan el renderizador, el pool y las imágenes. El proyecto es inmutable y se congela al empezar: se puede seguir editando mientras exporta.
+- Tamaños: el lado corto manda (480, 720, 1080) y ambos lados son pares. Tasa de bits por píxel y fotograma: 0,05, 0,09 o 0,16, entre 300 kbps y 40 Mbps.
+- Descargar (`<a download>`) y compartir con el menú del sistema (`navigator.share` con archivos) cuando existe.
+- `vendor/`: `mp4-muxer` 5.2.2 y `webm-muxer` 5.1.4 (MIT), copias sin modificar y revisadas (sin red ni `eval`).
 
 ## Reglas del modelo
 
