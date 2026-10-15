@@ -35,7 +35,7 @@ export async function launch(options = {}) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   return {
-    page, errors, base: `http://localhost:${server.address().port}`,
+    page, errors, server, base: `http://localhost:${server.address().port}`,
     async close() { await browser.close(); server.close(); },
   };
 }

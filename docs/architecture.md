@@ -113,6 +113,17 @@ La vista previa se dibuja a un máximo de 960 px de lado. El texto se dibuja con
 - Descargar (`<a download>`) y compartir con el menú del sistema (`navigator.share` con archivos) cuando existe.
 - `vendor/`: `mp4-muxer` 5.2.2 y `webm-muxer` 5.1.4 (MIT), copias sin modificar y revisadas (sin red ni `eval`).
 
+## Aplicación y PWA (módulo 9)
+
+- `src/app/projects.js`: gestor de proyectos. Cuenta referencias de medios entre proyectos: borrar o duplicar uno no rompe los demás. Rutas por hash (`#/`, `#/p/<id>`), válidas en cualquier subcarpeta.
+- `src/app/editor.js` monta los componentes una vez y los conserva al cambiar de pestaña. En móvil el cajón de herramientas ocupa el sitio de la línea de tiempo, así la vista previa no cambia de tamaño; desde 960 px el panel va a la derecha.
+- Guardado: `autosave` con espera de 500 ms y vaciado al volver, al ocultar la página y en `pagehide`.
+- `sw.js` guarda todo lo que lista `precache.json` (`npm run precache`) en una caché por versión y sirve primero desde ella. `npm test` falla si `precache.json` o la versión estampada en `sw.js` están desfasados.
+- Una versión nueva queda en espera; un aviso con botón la activa y recarga. No se recarga sola.
+- En `localhost` el service worker solo se registra con `?sw`, para que el desarrollo no sirva código antiguo.
+- Iconos: `icons/*.svg` son la fuente; `node scripts/make-icons.mjs` genera los PNG con Chromium.
+- La prueba sin conexión apaga el servidor. `setOffline` de Playwright no corta las peticiones del propio service worker y daría un falso verde.
+
 ## Reglas del modelo
 
 - Tiempo en segundos, con precisión de milisegundo (`snap`).

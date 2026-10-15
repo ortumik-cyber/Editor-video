@@ -2,6 +2,7 @@ import { createIndexedDbBackend, createRepo } from '../core/persist.js';
 import { createToaster } from '../ui/dialog.js';
 import { mountEditor } from './editor.js';
 import { mountHome } from './home.js';
+import { registerServiceWorker } from './pwa.js';
 import { createProjectManager, parseRoute } from './projects.js';
 
 /** Arranque: repositorio en IndexedDB, rutas por hash y las dos pantallas. */
@@ -40,6 +41,7 @@ export function startApp({ root = document.getElementById('app'), dbName = 'edit
 
   window.addEventListener('hashchange', route);
   route();
+  if (!window.__noServiceWorker) registerServiceWorker({ toaster }).catch(() => {});
   return { repo, manager, route, get editor() { return current; } };
 }
 

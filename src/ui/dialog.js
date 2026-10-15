@@ -78,12 +78,23 @@ export function createToaster(doc = document) {
   region.setAttribute('aria-live', 'polite');
   doc.body.append(region);
   return {
-    show(message, { ms = 4500 } = {}) {
+    /** `ms: 0` deja el aviso hasta que se cierre; `action` añade un botón. */
+    show(message, { ms = 4500, action } = {}) {
       const el = doc.createElement('div');
       el.className = 'toast';
-      el.textContent = message;
+      const text = doc.createElement('span');
+      text.textContent = message;
+      el.append(text);
+      if (action) {
+        const button = doc.createElement('button');
+        button.type = 'button';
+        button.className = 'toast__action';
+        button.textContent = action.label;
+        button.addEventListener('click', () => { el.remove(); action.run(); });
+        el.append(button);
+      }
       region.append(el);
-      setTimeout(() => el.remove(), ms);
+      if (ms > 0) setTimeout(() => el.remove(), ms);
     },
     destroy() { region.remove(); },
   };
