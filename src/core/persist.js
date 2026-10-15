@@ -21,6 +21,13 @@ export function createRepo(backend) {
         .map(({ project, updatedAt }) => ({ id: project.id, name: project.name, updatedAt }))
         .sort((a, b) => b.updatedAt - a.updatedAt);
     },
+    /** Todos los proyectos guardados, completos. */
+    async loadAll() {
+      return (await backend.all('projects')).map((row) => migrate(row.project));
+    },
+    /** Borra solo el proyecto: los medios pueden ser de otros. Ver `createProjectManager`. */
+    deleteProject: (id) => backend.delete('projects', id),
+    /** Borra el proyecto y todos sus medios. Solo es seguro si ningún otro proyecto los usa. */
     async remove(project) {
       for (const assetId of Object.keys(project.assets)) {
         await backend.delete('media', assetId);
@@ -50,7 +57,7 @@ export function migrate(project) {
   return project;
 }
 
-/** Guarda tras una pausa sin cambios. Devuelve una función para parar y vaciar pendientes. */
+/** Guarda tras una pausa sin cambios. Devuelve una función para parar (vacía lo pendiente); `.flush()` guarda ya, sin parar. */
 export function autosave(store, repo, { delay = 800 } = {}) {
   let timer = null;
   let dirty = false;
@@ -67,7 +74,9 @@ export function autosave(store, repo, { delay = 800 } = {}) {
     clearTimeout(timer);
     timer = setTimeout(flush, delay);
   });
-  return async () => { unsubscribe(); await flush(); };
+  const stop = async () => { unsubscribe(); await flush(); };
+  stop.flush = flush;
+  return stop;
 }
 
 export function createMemoryBackend() {

@@ -11,7 +11,8 @@ import { validateFile } from './kinds.js';
  * y lanza si el navegador no puede leer el archivo. En el navegador se usa `createDomAdapters()`.
  *
  * Los blobs de medios quitados siguen en el repositorio mientras se pueda deshacer.
- * `collectGarbage()` los borra; llámalo al abrir un proyecto, con el historial vacío.
+ * `collectGarbage(alsoLive)` los borra; llámalo al abrir un proyecto, con el historial vacío. `alsoLive` son los
+ * medios que usan otros proyectos y no deben borrarse.
  */
 export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, maxBytes }) {
   const urls = new Map();
@@ -91,8 +92,8 @@ export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, 
     return store.dispatch({ type: 'asset/remove', assetId });
   }
 
-  async function collectGarbage() {
-    const live = new Set(Object.keys(store.getProject().assets));
+  async function collectGarbage(alsoLive = new Set()) {
+    const live = new Set([...Object.keys(store.getProject().assets), ...alsoLive]);
     for (const key of [...urls.keys()]) {
       if (!live.has(key.split(':')[0])) { urlApi.revokeObjectURL(urls.get(key)); urls.delete(key); }
     }
