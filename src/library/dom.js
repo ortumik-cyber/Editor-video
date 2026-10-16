@@ -1,3 +1,4 @@
+import { heicToJpeg, isHeic } from './heic.js';
 import { bucketsFor, computePeaks, stripTimes, thumbnailTime } from './waveform.js';
 
 const READY_TIMEOUT = 20000;
@@ -163,7 +164,18 @@ export function createDomAdapters({
     }
   }
 
+  /** Convierte a JPEG las fotos HEIC que este navegador no sabe abrir. El resto pasa tal cual. */
+  async function prepare(file) {
+    if (!(await isHeic(file))) return file;
+    try {
+      (await createImageBitmap(file)).close();
+      return file;
+    } catch { /* el navegador no la abre: se convierte */ }
+    return heicToJpeg(file, { doc });
+  }
+
   return {
+    prepare,
     inspect(file, kind) {
       if (kind === 'image') return inspectImage(file);
       if (kind === 'video') return inspectVideo(file);

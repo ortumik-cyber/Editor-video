@@ -7,7 +7,7 @@
   "scripts": {
     "precache": "node scripts/make-precache.mjs",
     "start": "node scripts/serve.mjs",
-    "test:browser": "node tests/browser/library.browser.mjs && node tests/browser/timeline.browser.mjs && node tests/browser/player.browser.mjs && node tests/browser/effects.browser.mjs && node tests/browser/inspector.browser.mjs && node tests/browser/text.browser.mjs && node tests/browser/textpanel.browser.mjs && node tests/browser/manipulate.browser.mjs && node tests/browser/audio.browser.mjs && node tests/browser/sfx.browser.mjs && node tests/browser/voice.browser.mjs && node tests/browser/export.browser.mjs && node tests/browser/exportpanel.browser.mjs && node tests/browser/app.browser.mjs && node tests/browser/pwa.browser.mjs && node tests/browser/polish.browser.mjs && node tests/browser/addpanel.browser.mjs",
+    "test:browser": "node tests/browser/library.browser.mjs && node tests/browser/timeline.browser.mjs && node tests/browser/player.browser.mjs && node tests/browser/effects.browser.mjs && node tests/browser/inspector.browser.mjs && node tests/browser/text.browser.mjs && node tests/browser/textpanel.browser.mjs && node tests/browser/manipulate.browser.mjs && node tests/browser/audio.browser.mjs && node tests/browser/sfx.browser.mjs && node tests/browser/voice.browser.mjs && node tests/browser/export.browser.mjs && node tests/browser/exportpanel.browser.mjs && node tests/browser/app.browser.mjs && node tests/browser/pwa.browser.mjs && node tests/browser/polish.browser.mjs && node tests/browser/addpanel.browser.mjs && node tests/browser/heic.browser.mjs",
     "test": "node scripts/make-precache.mjs --check && node --test \"tests/**/*.test.js\""
   },
   "engines": { "node": ">=20" }

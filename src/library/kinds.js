@@ -2,7 +2,7 @@ export const MAX_FILE_BYTES = 2 * 1024 ** 3;
 
 const EXTENSIONS = {
   video: ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi', '3gp'],
-  image: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp'],
+  image: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp', 'heic', 'heif', 'hif'],
   audio: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'oga', 'opus', 'flac', 'weba'],
 };
 

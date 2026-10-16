@@ -1,5 +1,5 @@
 {
-  "version": "b74b278c71ea",
+  "version": "8c84f7a57b6e",
   "files": [
     "assets/fonts/anton-latin-400-normal.woff2",
     "assets/fonts/bebas-neue-latin-400-normal.woff2",
@@ -56,6 +56,7 @@
     "src/export/save.js",
     "src/export/settings.js",
     "src/library/dom.js",
+    "src/library/heic.js",
     "src/library/index.js",
     "src/library/kinds.js",
     "src/library/library.js",
@@ -88,6 +89,7 @@
     "src/ui/dialog.js",
     "src/ui/icons.js",
     "src/ui/tokens.css",
+    "vendor/libheif-bundle.mjs",
     "vendor/mp4-muxer.mjs",
     "vendor/webm-muxer.mjs"
   ]

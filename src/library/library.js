@@ -26,6 +26,11 @@ export function createLibrary({ store, repo, adapters, urlApi = globalThis.URL, 
 
     let inspected;
     try {
+      if (adapters.prepare) {
+        try { file = await adapters.prepare(file); } catch (cause) {
+          return { ok: false, name: file.name, code: 'unreadable', cause, message: `No se pudo convertir ${file.name}. Si es una foto HEIC, prueba a exportarla como JPEG desde tu galería.` };
+        }
+      }
       inspected = await adapters.inspect(file, check.kind);
     } catch (error) {
       return {
