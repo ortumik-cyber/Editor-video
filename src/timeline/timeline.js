@@ -221,7 +221,7 @@ export function createTimeline(root, { store, library = null, doc = root.ownerDo
     set('redo', store.canRedo());
     set('duplicate', state.selection.length > 0);
     set('delete', state.selection.length > 0);
-    set('split', state.selection.length > 0 || clipsAt(store.getProject(), state.playhead).length > 0);
+    set('split', Object.keys(store.getProject().clips).length > 0);
     const selected = store.getProject().clips[state.selection[0]];
     const track = selected && store.getProject().tracks.find((t) => t.id === selected.trackId);
     const mutable = Boolean(track) && track.kind !== 'text';

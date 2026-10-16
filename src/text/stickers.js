@@ -33,11 +33,23 @@ export const STICKERS = Object.freeze([
   { id: 'note', label: 'Nota musical', svg: svg('<ellipse cx="65" cy="150" rx="26" ry="20" fill="#a78bfa"/><ellipse cx="140" cy="130" rx="26" ry="20" fill="#a78bfa"/><path d="M88 150V50L162 32V130" fill="none" stroke="#a78bfa" stroke-width="12" stroke-linejoin="round"/>') },
 ]);
 
-export const EMOJI = Object.freeze([
-  '😀', '😂', '😍', '😎', '🥳', '😭', '😡', '🤔', '👍', '👏', '🙌', '💪',
-  '❤️', '🔥', '✨', '⭐', '🎉', '🎵', '💯', '✅', '👀', '🌈', '☀️', '🌙',
-  '🍕', '☕', '🐶', '🐱', '🚀', '🎬', '📷', '💡',
+const group = (id, label, chars) => Object.freeze({ id, label, emoji: Object.freeze(chars.split(' ')) });
+
+/** Emoji por categorías. Solo caracteres de Unicode 12 o anteriores: se dibujan en casi cualquier dispositivo. */
+export const EMOJI_GROUPS = Object.freeze([
+  group('caras', 'Caras', '😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 😉 😍 🥰 😘 😋 😜 🤪 😎 🤩 🥳 😏 😒 😞 😔 😢 😭 😤 😡 🤬 😱 😨 😴 🤔 🤫 🙄 😬 🤯 🥺 😷'),
+  group('gestos', 'Gestos', '👍 👎 👏 🙌 🙏 🤝 💪 👋 ✌️ 🤞 🤟 🤘 👌 👈 👉 👆 👇 ☝️ ✊ 👊 🤙 🖐️ 🤲 💅 👀 👂 👃 👄 🧠'),
+  group('amor', 'Amor y brillos', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💔 💕 💞 💓 💗 💖 💘 💝 💋 💯 💢 💥 💫 💦 💤 ✨ 🌟 ⭐ 🔥'),
+  group('animales', 'Animales', '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦉 🦋 🐝 🐢 🐙 🐬 🐳 🦈 🦄 🐴 🐍'),
+  group('comida', 'Comida', '🍕 🍔 🍟 🌭 🌮 🌯 🍣 🍜 🍝 🥗 🍿 🥐 🍞 🧀 🥚 🍳 🥓 🍎 🍌 🍓 🍉 🍇 🍍 🥑 🍅 🥕 🍦 🍩 🍪 🎂 🍰 🍫 🍬 ☕ 🍵 🍺 🍷 🥂 🍹 🥤'),
+  group('viajes', 'Viajes', '🚗 🚕 🚌 🚓 🚑 🚒 🚲 🛵 🏍️ ✈️ 🚀 🚁 ⛵ 🚢 🚂 🏠 🏖️ 🏝️ ⛰️ 🌋 🏕️ 🌅 🌆 🗼 🗽 🌍'),
+  group('naturaleza', 'Naturaleza', '☀️ 🌙 ⛅ ☁️ 🌧️ ⛈️ ❄️ ⛄ 🌈 ⚡ 🌊 🌸 🌹 🌻 🌷 🌴 🌲 🍀 🍁 🌵 🌾 🍄'),
+  group('fiesta', 'Fiesta y deporte', '🎉 🎊 🎈 🎁 🎵 🎶 🎤 🎧 🎸 🥁 🎹 🎬 📷 📹 🎮 ⚽ 🏀 🏈 ⚾ 🎾 🏐 🏆 🥇 🎯 🎲 🎭 🎨'),
+  group('simbolos', 'Objetos y símbolos', '💡 📱 💻 ⌚ 📸 🔔 📣 🔒 🔑 💰 💎 ⏰ 📌 ✅ ❌ ❓ ❗ ⚠️ ➕ ➖ ➡️ ⬅️ 🔝 🆕 🆗 🔴 🟢 🔵 ✔️ 🏁 🚩'),
 ]);
+
+/** Todos los emoji en una sola lista. */
+export const EMOJI = Object.freeze(EMOJI_GROUPS.flatMap((g) => g.emoji));
 
 /** Estilos de partida para un texto nuevo. */
 export const TEXT_STYLES = Object.freeze([

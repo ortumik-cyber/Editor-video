@@ -104,7 +104,7 @@ export function splitAtPlayhead(store) {
   const target = selected && playhead > selected.start && playhead < clipEnd(selected)
     ? selected
     : clipsAt(project, playhead).filter((c) => !project.tracks.find((t) => t.id === c.trackId).locked).at(-1);
-  if (!target) return err('no_clip', 'No hay ningún clip bajo el cursor');
+  if (!target) return err('no_clip', 'El cursor no está sobre ningún clip. Toca la regla o arrastra la barra de posición hasta donde quieras cortar y pulsa las tijeras de nuevo.');
   const rightId = newId('clp');
   const result = store.dispatch({ type: 'clip/split', clipId: target.id, at: playhead, newId: rightId });
   if (result.ok) store.select([rightId]);

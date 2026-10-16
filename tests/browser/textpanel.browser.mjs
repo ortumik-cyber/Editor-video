@@ -179,6 +179,7 @@ try {
 
   // ---------- emoji ----------
   await run(() => store.setPlayhead(5));
+  await page.click('[data-group="amor"]'); // 🔥 está en «Amor y brillos»
   await page.click('[data-emoji="🔥"]');
   const emojiClip = await clipNow(await selectedId());
   assert.equal(emojiClip.text.content, '🔥');

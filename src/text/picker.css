@@ -8,3 +8,15 @@
 .add__tile svg { width: 100%; height: 100%; }
 .add__chip:hover, .add__tile:hover { background: color-mix(in oklab, var(--color-card) 80%, white); }
 .add__status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.add__import { display: inline-flex; align-items: center; min-height: var(--touch-target); padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md); background: var(--color-primary); color: var(--color-on-primary); font: 600 14px var(--font-sans); cursor: pointer; }
+.add__import:hover { background: var(--color-secondary); color: var(--color-on-secondary); }
+.add__hint { margin: var(--space-2) 0; color: var(--color-muted-foreground); font-size: 13px; }
+.add__chip[aria-pressed="true"] { background: var(--color-primary); color: var(--color-on-primary); font-weight: 600; }
+.add__emoji { margin-top: var(--space-2); }
+.add__tracks { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.add__track { display: flex; align-items: center; gap: var(--space-2); padding-left: var(--space-3); border-radius: var(--radius-md); background: var(--color-card); }
+.add__track-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.add__track-time { color: var(--color-muted-foreground); font-size: 13px; }
+.add__track-add { flex: none; width: var(--touch-target); height: var(--touch-target); border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; font-size: 22px; cursor: pointer; }
+.add__track-add:hover { background: var(--color-muted); }

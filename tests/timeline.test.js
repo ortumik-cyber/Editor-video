@@ -162,7 +162,7 @@ test('acciones: dividir, duplicar, borrar y empujar con el teclado', () => {
 });
 
 import { addEmojiClip, addOverlayAsset, addStyledText } from '../src/timeline/actions.js';
-import { EMOJI, STICKERS, TEXT_STYLES } from '../src/text/stickers.js';
+import { EMOJI, EMOJI_GROUPS, STICKERS, TEXT_STYLES } from '../src/text/stickers.js';
 
 test('textos: dos a la vez van a pistas distintas en vez de desplazarse', () => {
   const { store } = setup();
@@ -242,4 +242,12 @@ test('stickers: catálogo bien formado y sin recursos externos', () => {
     const closes = (s.svg.match(/<\/[a-zA-Z]+>/g) ?? []).length + (s.svg.match(/\/>/g) ?? []).length;
     assert.equal(opens, closes, `${s.id}: etiquetas equilibradas`);
   }
+});
+
+test('emoji: nueve categorías sin repeticiones y con más de doscientos símbolos', () => {
+  assert.equal(EMOJI_GROUPS.length, 9);
+  assert.ok(EMOJI.length >= 250, `solo hay ${EMOJI.length}`);
+  assert.equal(new Set(EMOJI).size, EMOJI.length);
+  for (const g of EMOJI_GROUPS) assert.ok(g.emoji.length >= 20 && g.label && g.id, g.id);
+  assert.ok(EMOJI_GROUPS.every((g) => g.emoji.every((e) => !/\s/.test(e) && e.length >= 1)));
 });

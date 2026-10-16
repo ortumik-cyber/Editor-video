@@ -20,6 +20,10 @@ const TABS = [
 ];
 const TITLES = { media: 'Medios', add: 'Añadir', edit: 'Editar', project: 'Proyecto', export: 'Exportar' };
 const SHORTCUTS = [
+  { title: 'Cortar y recortar', items: [
+    [['Tocar clip'], 'Selecciona el clip'], [['Barra o regla'], 'Mueve el cursor al punto de corte'],
+    [['Tijeras'], 'Corta el clip en el cursor'], [['Arrastrar borde'], 'Recorta el principio o el final del clip seleccionado'],
+  ] },
   { title: 'Reproducción', items: [[['Espacio'], 'Reproducir o pausar'], [['Inicio'], 'Ir al principio'], [['Fin'], 'Ir al final']] },
   { title: 'Línea de tiempo', items: [
     [['S'], 'Dividir en el cursor'], [['D'], 'Duplicar el clip'], [['M'], 'Silenciar la pista'],
