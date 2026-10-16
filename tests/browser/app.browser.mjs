@@ -6,6 +6,17 @@ import { launch, makeMedia } from './helpers.mjs';
 const dir = makeMedia();
 const app = await launch({ viewport: { width: 390, height: 780 }, hasTouch: true });
 const { page } = app;
+
+// Contraste WCAG entre el color del texto y el fondo efectivo de un elemento.
+const contrast = (locator) => locator.evaluate((el) => {
+  const parse = (c) => c.match(/[\d.]+/g).map(Number);
+  const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+  let bg = el;
+  let back = [0, 0, 0, 0];
+  for (; bg && back[3] === 0; bg = bg.parentElement) back = parse(getComputedStyle(bg).backgroundColor).concat(1).slice(0, 4).map((v, i) => (i === 3 ? (parse(getComputedStyle(bg).backgroundColor)[3] ?? 1) : v));
+  const [a, b] = [lum(parse(getComputedStyle(el).color)), lum(back)].sort((x, y) => y - x);
+  return (a + 0.05) / (b + 0.05);
+});
 const proj = () => page.evaluate(() => editorApp.editor.store.getProject());
 try {
   await page.goto(`${app.base}/index.html`);
@@ -18,12 +29,14 @@ try {
   // ---------- nuevo proyecto ----------
   await page.locator('.home__top [data-act="new"]').click();
   await page.fill('#dlg-name', 'Viaje');
+  for (const sel of ['.dlg__btn--primary', '.dlg__btn:not(.dlg__btn--primary)']) assert.ok(await contrast(page.locator(sel).first()) >= 4.5, `contraste de ${sel}`);
   await page.locator('.dlg__aspect', { hasText: '9:16' }).click();
   await page.locator('.dlg__btn--primary').click();
   await page.waitForSelector('.editor');
   assert.match(page.url(), /#\/p\//);
   assert.equal(await page.locator('.ed__title').textContent(), 'Viaje');
 
+  for (const sel of ['.ed__export', '.ed__title', '.ed__tab']) assert.ok(await contrast(page.locator(sel).first()) >= 4.5, `contraste de ${sel}`);
   // ---------- maquetación móvil ----------
   const noScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
   assert.ok(await noScroll(), 'sin scroll horizontal');
